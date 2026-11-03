@@ -69,6 +69,30 @@ export interface SiteSettings {
   google_maps_url: string;
 }
 
+export interface HeroMetric {
+  icon: string;
+  title: string;
+  subtitle: string;
+}
+
+export interface HeroSettings {
+  badge_text: string;
+  headline_line1: string;
+  headline_line2: string;
+  headline_highlight: string;
+  description: string;
+  primary_button_text: string;
+  primary_button_link: string;
+  secondary_button_text: string;
+  secondary_button_link: string;
+  video_url: string;
+  video_public_id?: string;
+  poster_url?: string;
+  overlay_opacity: number; // e.g. 20 to 80 (default ~40)
+  overlay_gradient_style?: 'subtle' | 'balanced' | 'deep';
+  metrics?: HeroMetric[];
+}
+
 export interface UserProfile {
   id: string;
   email: string;

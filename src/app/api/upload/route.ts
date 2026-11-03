@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import cloudinary, { isCloudinaryConfigured } from '@/lib/cloudinary';
+import { Readable } from 'stream';
+import fs from 'fs/promises';
+import path from 'path';
+
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,45 +22,116 @@ export async function POST(req: NextRequest) {
     // Convert file to buffer
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const mimeType = file.type || 'image/jpeg';
-    const base64Data = `data:${mimeType};base64,${buffer.toString('base64')}`;
+    const mimeType = file.type || '';
+    const isVideo = mimeType.startsWith('video/') || /\.(mp4|webm|mov|ogg|m4v)$/i.test(file.name);
 
-    // If Cloudinary credentials are fully configured, upload directly to Cloudinary
+    // 1. Attempt Cloudinary Upload if configured
     if (isCloudinaryConfigured()) {
-      const uploadResult = await cloudinary.uploader.upload(base64Data, {
-        folder,
-        resource_type: 'auto',
-      });
+      try {
+        const uploadResult = await new Promise<{
+          secure_url: string;
+          public_id: string;
+          format?: string;
+          width?: number;
+          height?: number;
+          bytes?: number;
+          resource_type?: string;
+        }>((resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            {
+              folder,
+              resource_type: isVideo ? 'video' : 'auto',
+            },
+            (error, result) => {
+              if (error || !result) reject(error || new Error('Cloudinary stream produced no result'));
+              else resolve(result);
+            }
+          );
 
-      return NextResponse.json({
-        success: true,
-        url: uploadResult.secure_url,
-        public_id: uploadResult.public_id,
-        format: uploadResult.format,
-        width: uploadResult.width,
-        height: uploadResult.height,
-        bytes: uploadResult.bytes,
-      });
+          // Correct Node.js stream creation
+          Readable.from(buffer).pipe(uploadStream);
+        });
+
+        return NextResponse.json({
+          success: true,
+          url: uploadResult.secure_url,
+          public_id: uploadResult.public_id,
+          format: uploadResult.format,
+          width: uploadResult.width,
+          height: uploadResult.height,
+          bytes: uploadResult.bytes,
+          resource_type: uploadResult.resource_type || (isVideo ? 'video' : 'image'),
+          isCloudinary: true,
+        });
+      } catch (cloudErr: unknown) {
+        const cloudMessage = cloudErr instanceof Error ? cloudErr.message : JSON.stringify(cloudErr);
+        console.warn('Cloudinary stream upload failed, trying base64 upload:', cloudMessage);
+
+        try {
+          // Attempt base64 direct upload as second Cloudinary strategy
+          const base64Data = `data:${mimeType || (isVideo ? 'video/mp4' : 'image/jpeg')};base64,${buffer.toString('base64')}`;
+          const b64Result = await cloudinary.uploader.upload(base64Data, {
+            folder,
+            resource_type: isVideo ? 'video' : 'auto',
+          });
+
+          return NextResponse.json({
+            success: true,
+            url: b64Result.secure_url,
+            public_id: b64Result.public_id,
+            format: b64Result.format,
+            bytes: b64Result.bytes,
+            resource_type: b64Result.resource_type || (isVideo ? 'video' : 'image'),
+            isCloudinary: true,
+          });
+        } catch (b64Err: unknown) {
+          const b64Message = b64Err instanceof Error ? b64Err.message : JSON.stringify(b64Err);
+          console.error('Cloudinary base64 upload also failed:', b64Message);
+
+          // Save locally as resilient fallback
+          const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+          await fs.mkdir(uploadsDir, { recursive: true });
+
+          const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+          const filename = `${Date.now()}_${safeName}`;
+          const filePath = path.join(uploadsDir, filename);
+
+          await fs.writeFile(filePath, buffer);
+
+          return NextResponse.json({
+            success: true,
+            url: `/uploads/${filename}`,
+            public_id: `${folder}/${filename}`,
+            isLocal: true,
+            cloudinaryError: b64Message || cloudMessage,
+            message: `Cloudinary error: ${b64Message || cloudMessage}. Stored locally in /uploads.`,
+          });
+        }
+      }
     }
 
-    // Demo/Fallback mode when keys are placeholder: Return base64 with simulated Cloudinary public_id
-    // This allows instant testing in development without crashing!
-    const mockPublicId = `${folder}/demo_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    // Fallback if Cloudinary is not configured at all
+    const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+    await fs.mkdir(uploadsDir, { recursive: true });
+
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const filename = `${Date.now()}_${safeName}`;
+    const filePath = path.join(uploadsDir, filename);
+
+    await fs.writeFile(filePath, buffer);
 
     return NextResponse.json({
       success: true,
-      url: base64Data,
-      public_id: mockPublicId,
-      isDemo: true,
-      message: 'Uploaded in local preview mode. Add real Cloudinary keys in .env.local for production CDN storage.',
+      url: `/uploads/${filename}`,
+      public_id: `${folder}/${filename}`,
+      isLocal: true,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Upload failed';
-    console.error('Cloudinary upload error:', error);
+    console.error('File upload fatal error:', error);
     return NextResponse.json(
       { success: false, error: message },
       { status: 500 }
     );
   }
 }
-

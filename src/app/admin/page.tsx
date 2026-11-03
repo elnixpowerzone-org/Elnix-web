@@ -12,7 +12,8 @@ import {
   ExternalLink,
   ShieldAlert,
   Sparkles,
-  Phone
+  Phone,
+  Film
 } from 'lucide-react';
 import { getProducts, getCategories, getBrands, getEnquiries } from '@/lib/store';
 
@@ -83,6 +84,13 @@ export default async function AdminDashboardPage() {
             >
               <Plus className="w-4 h-4" />
               <span>Add New Product</span>
+            </Link>
+            <Link
+              href="/admin/hero"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-900/60 hover:bg-sky-900 text-sky-200 text-xs font-bold transition-all border border-sky-500/30"
+            >
+              <Film className="w-4 h-4 text-sky-400" />
+              <span>Hero Video CMS</span>
             </Link>
             <Link
               href="/admin/enquiries"

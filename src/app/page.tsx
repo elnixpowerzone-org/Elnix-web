@@ -7,22 +7,24 @@ import BrandsSection from '@/components/home/BrandsSection';
 import AboutSection from '@/components/home/AboutSection';
 import LocationSection from '@/components/home/LocationSection';
 import CtaBanner from '@/components/home/CtaBanner';
-import { getCategories, getProducts, getBrands } from '@/lib/store';
+import { getCategories, getProducts, getBrands, getHeroSettings } from '@/lib/store';
 
-export const revalidate = 60; // ISR cache revalidation
+export const dynamic = 'force-dynamic';
+export const revalidate = 0; // Always fetch fresh settings on refresh
 
 export default async function HomePage() {
-  const [categories, products, brands] = await Promise.all([
+  const [categories, products, brands, heroSettings] = await Promise.all([
     getCategories(),
     getProducts({ featured: true }),
     getBrands(),
+    getHeroSettings(),
   ]);
 
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
       <main className="flex-1">
-        <HeroSection />
+        <HeroSection hero={heroSettings} />
         <CategoriesSection categories={categories} />
         <PopularProductsSection products={products} />
         <BrandsSection brands={brands} />
