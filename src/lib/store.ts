@@ -132,7 +132,7 @@ export async function saveProduct(product: Partial<Product>): Promise<Product> {
           .from('products')
           .insert({
             name: product.name,
-            slug: product.slug || `${product.name?.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}`,
+            slug: product.slug || `${(product.name || 'item').toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}`,
             category_id: product.category_id,
             brand_id: product.brand_id,
             tagline: product.tagline,
@@ -212,69 +212,210 @@ export async function deleteProduct(id: string): Promise<boolean> {
   return false;
 }
 
+// ---------------- CATEGORY HELPERS & METADATA ----------------
+export function autoInferCategoryIcon(nameOrSlug: string = ''): string {
+  const s = nameOrSlug.toLowerCase();
+  if (s.includes('batter')) return 'battery';
+  if (s.includes('invert') || s.includes('ups')) return 'zap';
+  if (s.includes('solar')) return 'sun';
+  if (s.includes('pump')) return 'droplet';
+  if (s.includes('heat') || s.includes('geyser') || s.includes('water-heater')) return 'flame';
+  if (s.includes('elect')) return 'plug';
+  if (s.includes('plumb') || s.includes('pipe')) return 'wrench';
+  if (s.includes('sanit') || s.includes('bath')) return 'bath';
+  return 'layers';
+}
+
+interface CategoryMetaRecord {
+  is_visible?: boolean;
+  custom_url?: string;
+  icon?: string;
+}
+
+async function getHomepageCategoriesMeta(): Promise<Record<string, CategoryMetaRecord>> {
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      const { data, error } = await adminClient
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'homepage_categories')
+        .single();
+      if (!error && data?.value && typeof data.value === 'object') {
+        return (data.value.meta as Record<string, CategoryMetaRecord>) || {};
+      }
+    } catch {
+      // Ignore error and return empty object
+    }
+  }
+  return {};
+}
+
+async function saveHomepageCategoryMeta(identifier: string, meta: CategoryMetaRecord) {
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      const currentMeta = await getHomepageCategoriesMeta();
+      currentMeta[identifier] = {
+        ...currentMeta[identifier],
+        ...meta,
+      };
+
+      await adminClient
+        .from('site_settings')
+        .upsert({
+          key: 'homepage_categories',
+          value: { meta: currentMeta },
+          updated_at: new Date().toISOString(),
+        });
+    } catch (err) {
+      console.warn('Failed to persist category meta to site_settings:', err);
+    }
+  }
+}
+
 // ---------------- CATEGORIES ----------------
 export async function getCategories(): Promise<Category[]> {
   const adminClient = createAdminClient();
+  let rawCategories: Category[] = [];
+
   if (adminClient) {
     try {
       const { data, error } = await adminClient
         .from('categories')
         .select('*')
         .order('display_order', { ascending: true });
-      if (!error && data) return data as Category[];
+      if (!error && data) {
+        rawCategories = data as Category[];
+      }
     } catch (err) {
       console.warn('Supabase categories error:', err);
     }
   }
-  return categoriesStore.map(cat => ({
-    ...cat,
-    product_count: productsStore.filter(p => p.category_id === cat.id).length
-  }));
+
+  if (rawCategories.length === 0) {
+    rawCategories = [...categoriesStore];
+  }
+
+  // Load custom metadata (visibility, custom_url, icon) from site_settings
+  const metaMap = await getHomepageCategoriesMeta();
+
+  const enriched = rawCategories.map(cat => {
+    const meta = metaMap[cat.id] || metaMap[cat.slug] || {};
+    const icon = cat.icon || meta.icon || autoInferCategoryIcon(cat.slug || cat.name);
+    const is_visible = cat.is_visible !== undefined ? cat.is_visible : (meta.is_visible !== undefined ? meta.is_visible : true);
+    const custom_url = cat.custom_url || meta.custom_url || '';
+
+    return {
+      ...cat,
+      display_order: cat.display_order ?? 0,
+      is_visible,
+      custom_url,
+      icon,
+      product_count: productsStore.filter(p => p.category_id === cat.id).length,
+    };
+  });
+
+  // Sort ascending by display_order
+  return enriched.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
 }
 
 export async function saveCategory(category: Partial<Category>): Promise<Category> {
   const adminClient = createAdminClient();
-  if (adminClient && category.id && !category.id.startsWith('cat-')) {
+  let savedCategory: Category | null = null;
+
+  if (adminClient) {
     try {
-      const { data, error } = await adminClient
-        .from('categories')
-        .update({
-          name: category.name,
-          slug: category.slug,
-          description: category.description,
-          image_url: category.image_url,
-          public_id: category.public_id,
-          display_order: category.display_order,
-        })
-        .eq('id', category.id)
-        .select()
-        .single();
-      if (!error && data) return data as Category;
+      if (category.id && !category.id.startsWith('cat-')) {
+        const { data, error } = await adminClient
+          .from('categories')
+          .update({
+            name: category.name,
+            slug: category.slug,
+            description: category.description,
+            image_url: category.image_url,
+            public_id: category.public_id,
+            display_order: category.display_order,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', category.id)
+          .select()
+          .single();
+
+        if (!error && data) {
+          savedCategory = data as Category;
+        }
+      } else {
+        const generatedSlug = category.slug || `${(category.name || 'cat').toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now().toString().slice(-4)}`;
+        const { data, error } = await adminClient
+          .from('categories')
+          .insert({
+            name: category.name || 'New Category',
+            slug: generatedSlug,
+            description: category.description || '',
+            image_url: category.image_url || '/images/cat-batteries.jpg',
+            public_id: category.public_id || null,
+            display_order: category.display_order ?? (categoriesStore.length + 1),
+          })
+          .select()
+          .single();
+
+        if (!error && data) {
+          savedCategory = data as Category;
+        }
+      }
     } catch (err) {
       console.warn('Supabase category save error:', err);
     }
   }
 
+  // Update in-memory fallback
   if (category.id) {
     const idx = categoriesStore.findIndex(c => c.id === category.id);
     if (idx !== -1) {
-      categoriesStore[idx] = { ...categoriesStore[idx], ...category };
-      return categoriesStore[idx];
+      categoriesStore[idx] = {
+        ...categoriesStore[idx],
+        ...category,
+        display_order: category.display_order ?? categoriesStore[idx].display_order,
+      };
+      savedCategory = savedCategory || categoriesStore[idx];
     }
   }
 
-  const newCat: Category = {
-    id: `cat-${Date.now()}`,
-    name: category.name || 'New Category',
-    slug: category.slug || `${(category.name || 'cat').toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
-    description: category.description || '',
-    image_url: category.image_url || 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=800&q=80',
-    public_id: category.public_id,
-    display_order: category.display_order || categoriesStore.length + 1,
-    product_count: 0,
+  if (!savedCategory) {
+    const newCat: Category = {
+      id: category.id || `cat-${Date.now()}`,
+      name: category.name || 'New Category',
+      slug: category.slug || `${(category.name || 'cat').toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+      description: category.description || '',
+      image_url: category.image_url || '/images/cat-batteries.jpg',
+      public_id: category.public_id,
+      display_order: category.display_order ?? (categoriesStore.length + 1),
+      product_count: 0,
+      is_visible: category.is_visible ?? true,
+      custom_url: category.custom_url || '',
+      icon: category.icon || autoInferCategoryIcon(category.name),
+    };
+    categoriesStore.push(newCat);
+    savedCategory = newCat;
+  }
+
+  // Save metadata (is_visible, custom_url, icon) to site_settings
+  const metaId = savedCategory.id || savedCategory.slug;
+  if (metaId) {
+    await saveHomepageCategoryMeta(metaId, {
+      is_visible: category.is_visible ?? true,
+      custom_url: category.custom_url || '',
+      icon: category.icon || autoInferCategoryIcon(savedCategory.slug || savedCategory.name),
+    });
+  }
+
+  return {
+    ...savedCategory,
+    is_visible: category.is_visible ?? true,
+    custom_url: category.custom_url || '',
+    icon: category.icon || autoInferCategoryIcon(savedCategory.slug || savedCategory.name),
   };
-  categoriesStore.push(newCat);
-  return newCat;
 }
 
 export async function deleteCategory(id: string): Promise<boolean> {
@@ -282,11 +423,16 @@ export async function deleteCategory(id: string): Promise<boolean> {
   if (adminClient && !id.startsWith('cat-')) {
     try {
       const { error } = await adminClient.from('categories').delete().eq('id', id);
-      if (!error) return true;
+      if (!error) {
+        // also clean up meta
+        saveHomepageCategoryMeta(id, { is_visible: false });
+        return true;
+      }
     } catch (err) {
       console.warn('Supabase category delete error:', err);
     }
   }
+
   const idx = categoriesStore.findIndex(c => c.id === id);
   if (idx !== -1) {
     categoriesStore.splice(idx, 1);
@@ -298,41 +444,74 @@ export async function deleteCategory(id: string): Promise<boolean> {
 // ---------------- BRANDS ----------------
 export async function getBrands(): Promise<Brand[]> {
   const adminClient = createAdminClient();
+  let rawBrands: Brand[] = [];
+
   if (adminClient) {
     try {
       const { data, error } = await adminClient
         .from('brands')
         .select('*')
         .order('display_order', { ascending: true });
-      if (!error && data) return data as Brand[];
+      if (!error && data) {
+        rawBrands = data as Brand[];
+      }
     } catch (err) {
       console.warn('Supabase brands error:', err);
     }
   }
-  return brandsStore;
+
+  if (rawBrands.length === 0) {
+    rawBrands = [...brandsStore];
+  }
+
+  return rawBrands.map(b => ({
+    ...b,
+    is_channel_partner: b.is_channel_partner ?? true,
+    display_order: b.display_order ?? 0,
+  })).sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
 }
 
 export async function saveBrand(brand: Partial<Brand>): Promise<Brand> {
   const adminClient = createAdminClient();
-  if (adminClient && brand.id && !brand.id.startsWith('brand-')) {
+  let savedBrand: Brand | null = null;
+
+  if (adminClient) {
     try {
-      const { data, error } = await adminClient
-        .from('brands')
-        .update({
-          name: brand.name,
-          slug: brand.slug,
-          logo_url: brand.logo_url,
-          public_id: brand.public_id,
-          website: brand.website,
-          is_channel_partner: brand.is_channel_partner,
-          display_order: brand.display_order,
-        })
-        .eq('id', brand.id)
-        .select()
-        .single();
-      if (!error && data) return data as Brand;
+      if (brand.id && !brand.id.startsWith('brand-')) {
+        const { data, error } = await adminClient
+          .from('brands')
+          .update({
+            name: brand.name,
+            slug: brand.slug,
+            logo_url: brand.logo_url,
+            public_id: brand.public_id,
+            website: brand.website,
+            is_channel_partner: brand.is_channel_partner ?? true,
+            display_order: brand.display_order,
+          })
+          .eq('id', brand.id)
+          .select()
+          .single();
+        if (!error && data) savedBrand = data as Brand;
+      } else {
+        const generatedSlug = brand.slug || `${(brand.name || 'brand').toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now().toString().slice(-4)}`;
+        const { data, error } = await adminClient
+          .from('brands')
+          .insert({
+            name: brand.name || 'New Brand',
+            slug: generatedSlug,
+            logo_url: brand.logo_url || 'https://images.unsplash.com/photo-1619725002198-6a689b72f41d?auto=format&fit=crop&w=300&q=80',
+            public_id: brand.public_id || null,
+            website: brand.website || null,
+            is_channel_partner: brand.is_channel_partner ?? true,
+            display_order: brand.display_order ?? (brandsStore.length + 1),
+          })
+          .select()
+          .single();
+        if (!error && data) savedBrand = data as Brand;
+      }
     } catch (err) {
-      console.warn('Supabase brand update error:', err);
+      console.warn('Supabase brand save error:', err);
     }
   }
 
@@ -340,22 +519,26 @@ export async function saveBrand(brand: Partial<Brand>): Promise<Brand> {
     const idx = brandsStore.findIndex(b => b.id === brand.id);
     if (idx !== -1) {
       brandsStore[idx] = { ...brandsStore[idx], ...brand };
-      return brandsStore[idx];
+      return savedBrand || brandsStore[idx];
     }
   }
 
-  const newBrand: Brand = {
-    id: `brand-${Date.now()}`,
-    name: brand.name || 'New Brand',
-    slug: brand.slug || `${(brand.name || 'brand').toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
-    logo_url: brand.logo_url || 'https://images.unsplash.com/photo-1619725002198-6a689b72f41d?auto=format&fit=crop&w=300&q=80',
-    public_id: brand.public_id,
-    website: brand.website,
-    is_channel_partner: brand.is_channel_partner ?? true,
-    display_order: brand.display_order || brandsStore.length + 1,
-  };
-  brandsStore.push(newBrand);
-  return newBrand;
+  if (!savedBrand) {
+    const newBrand: Brand = {
+      id: brand.id || `brand-${Date.now()}`,
+      name: brand.name || 'New Brand',
+      slug: brand.slug || `${(brand.name || 'brand').toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+      logo_url: brand.logo_url || 'https://images.unsplash.com/photo-1619725002198-6a689b72f41d?auto=format&fit=crop&w=300&q=80',
+      public_id: brand.public_id,
+      website: brand.website,
+      is_channel_partner: brand.is_channel_partner ?? true,
+      display_order: brand.display_order ?? (brandsStore.length + 1),
+    };
+    brandsStore.push(newBrand);
+    return newBrand;
+  }
+
+  return savedBrand;
 }
 
 export async function deleteBrand(id: string): Promise<boolean> {
