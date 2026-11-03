@@ -1,4 +1,42 @@
-import { Category, Brand, Product, Enquiry, SiteSettings } from '@/types';
+import { Category, Brand, Product, Enquiry, SiteSettings, HeroSettings } from '@/types';
+
+export const initialHeroSettings: HeroSettings = {
+  badge_text: "WHOLESALE & RETAIL",
+  headline_line1: "Your Trusted",
+  headline_line2: "Partner for",
+  headline_highlight: "Every Connection.",
+  description: "Elnix Powerzone supplies high quality electrical, battery, plumbing and sanitary products for homes, buildings and businesses across Kerala.",
+  primary_button_text: "Explore Products",
+  primary_button_link: "/products",
+  secondary_button_text: "Visit Our Store",
+  secondary_button_link: "/locations",
+  video_url: "https://assets.mixkit.co/videos/48870/48870-720.mp4",
+  poster_url: "",
+  overlay_opacity: 40,
+  overlay_gradient_style: 'balanced',
+  metrics: [
+    {
+      icon: "shield",
+      title: "Genuine Products",
+      subtitle: "Trusted Brands"
+    },
+    {
+      icon: "truck",
+      title: "Wholesale & Retail",
+      subtitle: "Competitive Pricing"
+    },
+    {
+      icon: "headphones",
+      title: "Expert Support",
+      subtitle: "For Homes & Projects"
+    },
+    {
+      icon: "map-pin",
+      title: "Convenient Location",
+      subtitle: "Eruvely, Chottanikkara"
+    }
+  ]
+};
 
 export const initialSiteSettings: SiteSettings = {
   store_name: "ELNIX POWERZONE",

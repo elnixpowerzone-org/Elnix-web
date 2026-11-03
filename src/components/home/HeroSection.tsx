@@ -1,100 +1,141 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowRight, MapPin, ShieldCheck, Truck, Headphones, CheckCircle2 } from 'lucide-react';
+import { 
+  ArrowRight, 
+  MapPin, 
+  ShieldCheck, 
+  Truck, 
+  Headphones, 
+  CheckCircle2,
+  Sparkles
+} from 'lucide-react';
+import { HeroSettings } from '@/types';
+import { initialHeroSettings } from '@/data/initialData';
 
-export default function HeroSection({ onOpenQuote }: { onOpenQuote?: () => void }) {
+export default function HeroSection({ 
+  hero: initialHero,
+  onOpenQuote 
+}: { 
+  hero?: HeroSettings;
+  onOpenQuote?: () => void;
+}) {
+  const [hero, setHero] = useState<HeroSettings>(initialHero || initialHeroSettings);
+
+  // Always ensure sync with latest saved hero data from API on client
+  useEffect(() => {
+    if (initialHero) {
+      setHero(initialHero);
+    }
+    fetch('/api/hero', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.data && data.data.video_url) {
+          setHero(data.data);
+        }
+      })
+      .catch(() => {});
+  }, [initialHero]);
+
+  const opacityValue = hero.overlay_opacity ?? 40;
+  // Calculate left gradient dark factor (strong enough to keep text readable, but transparent towards center/right)
+  const leftDark = Math.min(0.88, (opacityValue / 100) * 1.7);
+  const midDark = Math.min(0.65, (opacityValue / 100) * 1.1);
+  const rightDark = Math.min(0.45, (opacityValue / 100) * 0.5);
+
+  const customPoster = hero.poster_url && hero.poster_url !== '/images/hero-powerzone.jpg' ? hero.poster_url : undefined;
+
   return (
-    <section className="relative bg-[#071326] text-white overflow-hidden">
-      {/* Background ambient lighting */}
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 left-10 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+    <section className="relative min-h-[640px] lg:min-h-[720px] bg-[#071326] text-white overflow-hidden flex flex-col justify-between">
+      {/* 1. Full-Coverage Background Video Loop */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none bg-[#071326]">
+        {hero.video_url ? (
+          <video
+            key={hero.video_url}
+            autoPlay
+            loop
+            muted
+            playsInline
+            {...(customPoster ? { poster: customPoster } : {})}
+            className="w-full h-full object-cover object-center transform scale-105 transition-opacity duration-1000"
+          >
+            <source src={hero.video_url} type="video/mp4" />
+            <source src={hero.video_url} type="video/webm" />
+          </video>
+        ) : (
+          <div className="w-full h-full bg-[#071326]" />
+        )}
+      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-16 lg:pt-20 lg:pb-24">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
-          {/* Left Column: Heading, Subtitle & CTAs */}
-          <div className="lg:col-span-7 space-y-6 z-10">
-            {/* Tag / Badge */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-500/15 border border-sky-400/25 text-sky-400 text-xs font-bold tracking-widest uppercase">
-              <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
-              <span>WHOLESALE & RETAIL</span>
-            </div>
+      {/* 2. Tuned Directional & Vertical Light-Dark Gradient Overlays */}
+      {/* Directional gradient: Gently darkens left side behind text, fading out smoothly towards center & right so the dark-themed video details remain clearly visible */}
+      <div 
+        className="absolute inset-0 z-[1] pointer-events-none transition-all duration-300"
+        style={{
+          background: `linear-gradient(to right, rgba(7, 19, 38, ${leftDark}) 0%, rgba(7, 19, 38, ${midDark}) 40%, rgba(7, 19, 38, ${rightDark}) 70%, rgba(7, 19, 38, ${rightDark * 0.8}) 100%)`,
+        }}
+      />
 
-            {/* Main Headline */}
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.12]">
-              Your Trusted <br />
-              Partner for <br />
-              <span className="text-sky-400 drop-shadow-sm">Every Connection.</span>
-            </h1>
+      {/* Soft vertical gradient for smooth navbar blending at top and transition to next section at bottom */}
+      <div className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-b from-[#071326]/55 via-transparent to-[#071326]/90" />
 
-            {/* Description */}
-            <p className="text-base sm:text-lg text-slate-300 max-w-xl font-normal leading-relaxed">
-              Elnix Powerzone supplies high quality electrical, battery, plumbing and sanitary products for homes, buildings and businesses across Kerala.
-            </p>
+      {/* Subtle ambient lighting accent */}
+      <div className="absolute top-1/4 left-10 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none z-[1]" />
+      <div className="absolute bottom-10 right-10 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none z-[1]" />
 
-            {/* Action Buttons */}
-            <div className="pt-2 flex flex-wrap items-center gap-4">
-              <Link
-                href="/products"
-                className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-sm tracking-wide shadow-lg shadow-sky-500/25 transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0"
-              >
-                <span>Explore Products</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
+      {/* 3. Main Hero Content (Left-aligned over the video) */}
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-12 lg:pt-24 lg:pb-16 flex-1 flex flex-col justify-center w-full">
+        <div className="max-w-3xl space-y-7">
+          {/* Main Headline */}
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[1.08] text-white drop-shadow-[0_4px_16px_rgba(0,0,0,0.6)]">
+            {hero.headline_line1} <br />
+            {hero.headline_line2} <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-sky-300 to-cyan-300">
+              {hero.headline_highlight}
+            </span>
+          </h1>
 
-              <Link
-                href="/locations"
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-semibold text-sm backdrop-blur-xs transition-all duration-200 hover:-translate-y-0.5"
-              >
-                <MapPin className="w-4 h-4 text-sky-400" />
-                <span>Visit Our Store</span>
-              </Link>
-            </div>
-          </div>
+          {/* Description */}
+          <p className="text-base sm:text-lg lg:text-xl text-slate-200 max-w-2xl font-normal leading-relaxed drop-shadow-md">
+            {hero.description}
+          </p>
 
-          {/* Right Column: Hero Showroom Image with modern overlay */}
-          <div className="lg:col-span-5 relative">
-            <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-white/15 bg-slate-900 aspect-4/3 lg:aspect-5/4 group">
-              <img
-                src="/images/hero-powerzone.jpg"
-                alt="Elnix Powerzone Commercial Power Systems & Solar Showroom"
-                className="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#071326] via-transparent to-transparent opacity-80" />
-              
-              {/* Floating Badge on Image */}
-              <div className="absolute bottom-4 left-4 right-4 p-4 rounded-xl bg-slate-900/80 backdrop-blur-md border border-white/15 flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-bold text-sky-400 uppercase tracking-wider">
-                    Eruvely Showroom
-                  </div>
-                  <div className="text-sm font-semibold text-white">
-                    Batteries • Electricals • Plumbing • Sanitary
-                  </div>
-                </div>
-                <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-lg bg-sky-500/20 text-sky-300 text-xs font-bold">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Open Today</span>
-                </div>
-              </div>
-            </div>
+          {/* Action Buttons */}
+          <div className="pt-2 flex flex-wrap items-center gap-4">
+            <Link
+              href={hero.primary_button_link || '/products'}
+              className="inline-flex items-center gap-2.5 px-8 py-4 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-sm tracking-wide shadow-xl shadow-sky-500/30 transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0"
+            >
+              <span>{hero.primary_button_text || 'Explore Products'}</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+
+            <Link
+              href={hero.secondary_button_link || '/locations'}
+              className="inline-flex items-center gap-2.5 px-7 py-4 rounded-xl bg-slate-900/60 hover:bg-slate-900/80 border border-white/25 text-white font-semibold text-sm backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 shadow-lg"
+            >
+              <MapPin className="w-4 h-4 text-sky-400" />
+              <span>{hero.secondary_button_text || 'Visit Our Store'}</span>
+            </Link>
           </div>
         </div>
+      </div>
 
-        {/* Hero Bottom Feature Strip (Translucent dark bar with 4 metrics) */}
-        <div className="mt-14 pt-8 border-t border-white/10">
+      {/* 4. Hero Bottom Feature Strip (Translucent Glass Bar) */}
+      <div className="relative z-10 border-t border-white/10 bg-slate-950/45 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 lg:gap-8">
             {/* Feature 1 */}
             <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-sky-500/15 border border-sky-400/20 text-sky-400 flex items-center justify-center shrink-0">
+              <div className="w-11 h-11 rounded-xl bg-sky-500/20 border border-sky-400/30 text-sky-400 flex items-center justify-center shrink-0 shadow-xs">
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <div>
                 <div className="text-sm font-bold text-white leading-snug">
                   Genuine Products
                 </div>
-                <div className="text-xs text-slate-400">
+                <div className="text-xs text-slate-300">
                   Trusted Brands
                 </div>
               </div>
@@ -102,14 +143,14 @@ export default function HeroSection({ onOpenQuote }: { onOpenQuote?: () => void 
 
             {/* Feature 2 */}
             <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-sky-500/15 border border-sky-400/20 text-sky-400 flex items-center justify-center shrink-0">
+              <div className="w-11 h-11 rounded-xl bg-sky-500/20 border border-sky-400/30 text-sky-400 flex items-center justify-center shrink-0 shadow-xs">
                 <Truck className="w-5 h-5" />
               </div>
               <div>
                 <div className="text-sm font-bold text-white leading-snug">
                   Wholesale & Retail
                 </div>
-                <div className="text-xs text-slate-400">
+                <div className="text-xs text-slate-300">
                   Competitive Pricing
                 </div>
               </div>
@@ -117,14 +158,14 @@ export default function HeroSection({ onOpenQuote }: { onOpenQuote?: () => void 
 
             {/* Feature 3 */}
             <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-sky-500/15 border border-sky-400/20 text-sky-400 flex items-center justify-center shrink-0">
+              <div className="w-11 h-11 rounded-xl bg-sky-500/20 border border-sky-400/30 text-sky-400 flex items-center justify-center shrink-0 shadow-xs">
                 <Headphones className="w-5 h-5" />
               </div>
               <div>
                 <div className="text-sm font-bold text-white leading-snug">
                   Expert Support
                 </div>
-                <div className="text-xs text-slate-400">
+                <div className="text-xs text-slate-300">
                   For Homes & Projects
                 </div>
               </div>
@@ -132,14 +173,14 @@ export default function HeroSection({ onOpenQuote }: { onOpenQuote?: () => void 
 
             {/* Feature 4 */}
             <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-sky-500/15 border border-sky-400/20 text-sky-400 flex items-center justify-center shrink-0">
+              <div className="w-11 h-11 rounded-xl bg-sky-500/20 border border-sky-400/30 text-sky-400 flex items-center justify-center shrink-0 shadow-xs">
                 <MapPin className="w-5 h-5" />
               </div>
               <div>
                 <div className="text-sm font-bold text-white leading-snug">
                   Convenient Location
                 </div>
-                <div className="text-xs text-slate-400">
+                <div className="text-xs text-slate-300">
                   Eruvely, Chottanikkara
                 </div>
               </div>
@@ -150,4 +191,3 @@ export default function HeroSection({ onOpenQuote }: { onOpenQuote?: () => void 
     </section>
   );
 }
-

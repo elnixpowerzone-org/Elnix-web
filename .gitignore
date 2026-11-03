@@ -25,3 +25,8 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Local media uploads fallback
+/public/uploads/*
+!/public/uploads/.gitkeep
+
+

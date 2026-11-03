@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, 
+  Film,
   Package, 
   Tags, 
   Award, 
@@ -54,6 +55,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+    { label: 'Hero Section', href: '/admin/hero', icon: Film },
     { label: 'Products', href: '/admin/products', icon: Package },
     { label: 'Categories', href: '/admin/categories', icon: Tags },
     { label: 'Brands', href: '/admin/brands', icon: Award },

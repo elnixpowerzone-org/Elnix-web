@@ -1,5 +1,5 @@
-import { Category, Brand, Product, Enquiry, SiteSettings } from '@/types';
-import { initialCategories, initialBrands, initialProducts, initialEnquiries, initialSiteSettings } from '@/data/initialData';
+import { Category, Brand, Product, Enquiry, SiteSettings, HeroSettings } from '@/types';
+import { initialCategories, initialBrands, initialProducts, initialEnquiries, initialSiteSettings, initialHeroSettings } from '@/data/initialData';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // In-memory / module-level state for demo/offline fallback mode
@@ -8,6 +8,7 @@ let brandsStore: Brand[] = [...initialBrands];
 let productsStore: Product[] = [...initialProducts];
 let enquiriesStore: Enquiry[] = [...initialEnquiries];
 let settingsStore: SiteSettings = { ...initialSiteSettings };
+let heroSettingsStore: HeroSettings = { ...initialHeroSettings };
 
 // ---------------- PRODUCTS ----------------
 export async function getProducts(options?: { category?: string; brand?: string; search?: string; featured?: boolean }) {
@@ -481,5 +482,46 @@ export async function updateSiteSettings(settings: Partial<SiteSettings>): Promi
   }
   settingsStore = updated;
   return settingsStore;
+}
+
+// ---------------- HERO SETTINGS ----------------
+export async function getHeroSettings(): Promise<HeroSettings> {
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      const { data, error } = await adminClient
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'hero_section')
+        .single();
+      if (!error && data?.value) {
+        return { ...initialHeroSettings, ...data.value } as HeroSettings;
+      }
+    } catch (err) {
+      console.warn('Supabase hero settings query error:', err);
+    }
+  }
+  return heroSettingsStore;
+}
+
+export async function updateHeroSettings(settings: Partial<HeroSettings>): Promise<HeroSettings> {
+  const adminClient = createAdminClient();
+  const updated: HeroSettings = { ...heroSettingsStore, ...settings };
+  if (adminClient) {
+    try {
+      const { error } = await adminClient
+        .from('site_settings')
+        .upsert({ key: 'hero_section', value: updated, updated_at: new Date().toISOString() });
+      if (error) {
+        console.error('Supabase hero settings update error:', error);
+        throw new Error(`Database error: ${error.message}`);
+      }
+    } catch (err) {
+      console.error('Supabase hero settings exception:', err);
+      throw err;
+    }
+  }
+  heroSettingsStore = updated;
+  return heroSettingsStore;
 }
 
