@@ -3,7 +3,6 @@ import Footer from '@/components/Footer';
 import HeroSection from '@/components/home/HeroSection';
 import CategoriesSection from '@/components/home/CategoriesSection';
 import PopularProductsSection from '@/components/home/PopularProductsSection';
-import BrandsSection from '@/components/home/BrandsSection';
 import AboutSection from '@/components/home/AboutSection';
 import LocationSection from '@/components/home/LocationSection';
 import CtaBanner from '@/components/home/CtaBanner';
@@ -23,9 +22,8 @@ export default async function HomePage() {
       <Navbar />
       <main className="flex-1">
         <HeroSection />
-        <CategoriesSection categories={categories} />
+        <CategoriesSection categories={categories} brands={brands} />
         <PopularProductsSection products={products} />
-        <BrandsSection brands={brands} />
         <AboutSection />
         <LocationSection />
         <CtaBanner />
@@ -34,4 +32,3 @@ export default async function HomePage() {
     </div>
   );
 }
-

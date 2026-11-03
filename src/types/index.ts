@@ -7,6 +7,9 @@ export interface Category {
   public_id?: string;
   display_order?: number;
   product_count?: number;
+  is_visible?: boolean;
+  custom_url?: string;
+  icon?: string;
 }
 
 export interface Brand {
@@ -75,4 +78,3 @@ export interface UserProfile {
   full_name?: string;
   role: 'admin' | 'user';
 }
-
