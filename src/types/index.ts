@@ -55,10 +55,32 @@ export interface Enquiry {
   type: 'general' | 'quote' | 'product';
   category?: string;
   product_name?: string;
+  preferred_location?: string;
   message: string;
   status: 'pending' | 'contacted' | 'completed' | 'archived';
   notes?: string;
   created_at: string;
+}
+
+export interface StoreLocation {
+  id: string;
+  name: string;
+  branch_label: string;
+  address: string;
+  phone: string;
+  whatsapp?: string;
+  email?: string;
+  timings: string;
+  description?: string;
+  map_embed_url?: string;
+  map_directions_url?: string;
+  latitude?: number;
+  longitude?: number;
+  is_primary: boolean;
+  is_visible: boolean;
+  display_order: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface SiteSettings {
@@ -70,6 +92,11 @@ export interface SiteSettings {
   address: string;
   timings: string;
   google_maps_url: string;
+  // Contact page customizable settings
+  contact_eyebrow?: string;
+  contact_heading?: string;
+  contact_description?: string;
+  contact_enquiry_info?: string;
 }
 
 export interface HeroMetric {

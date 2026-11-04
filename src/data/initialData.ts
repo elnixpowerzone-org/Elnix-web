@@ -1,4 +1,4 @@
-import { Category, Brand, Product, Enquiry, SiteSettings, HeroSettings } from '@/types';
+import { Category, Brand, Product, Enquiry, SiteSettings, HeroSettings, StoreLocation } from '@/types';
 import { AUTHENTIC_BRAND_SVGS } from '@/lib/brandLogos';
 
 export const initialHeroSettings: HeroSettings = {
@@ -48,7 +48,32 @@ export const initialSiteSettings: SiteSettings = {
   address: "Elnix Tower, Eruvely, Chottanikkara, Ernakulam - 682312, Kerala, India",
   timings: "Mon - Sat: 9:00 AM - 8:00 PM\nSunday: 9:00 AM - 4:00 PM",
   google_maps_url: "https://maps.google.com/?q=Chottanikkara+Ernakulam+Kerala",
+  contact_eyebrow: "GET IN TOUCH",
+  contact_heading: "We're Here to Help",
+  contact_description: "Connect with our wholesale specialists for genuine electricals, inverters, plumbing lines, and sanitaryware. Visit our showroom, call directly, or request a customized project quote.",
+  contact_enquiry_info: "Wholesale and retail inquiries are handled promptly by our experienced technical team.",
 };
+
+export const initialStoreLocations: StoreLocation[] = [
+  {
+    id: "loc-chottanikkara",
+    name: "Elnix Powerzone — Flagship Showroom & Warehouse",
+    branch_label: "Headquarters & Main Showroom",
+    address: "Elnix Tower, Eruvely, Chottanikkara, Ernakulam - 682312, Kerala, India",
+    phone: "8848 318 521",
+    whatsapp: "918848318521",
+    email: "elnixpowerzone@gmail.com",
+    timings: "Mon - Sat: 9:00 AM - 8:00 PM | Sunday: 9:00 AM - 4:00 PM",
+    description: "Our premier retail showroom and wholesale distribution center featuring comprehensive brand displays, computerized battery load-testing bench, and rapid bulk dispatch.",
+    map_embed_url: "https://maps.google.com/maps?q=Elnix+Tower+Eruvely+Chottanikkara+Kerala+682312&t=&z=15&ie=UTF8&iwloc=&output=embed",
+    map_directions_url: "https://maps.google.com/?q=Elnix+Tower+Eruvely+Chottanikkara+Ernakulam",
+    latitude: 9.9328,
+    longitude: 76.3776,
+    is_primary: true,
+    is_visible: true,
+    display_order: 1,
+  },
+];
 
 export const initialCategories: Category[] = [
   {

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSiteSettings, updateSiteSettings } from '@/lib/store';
+import { requireAdmin } from '@/lib/auth/admin';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const settings = await getSiteSettings();
@@ -7,8 +10,14 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
+  const authError = await requireAdmin(req);
+  if (authError) return authError;
+
   try {
     const body = await req.json();
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ success: false, error: 'Invalid settings payload' }, { status: 400 });
+    }
     const settings = await updateSiteSettings(body);
     return NextResponse.json({ success: true, data: settings });
   } catch (err: unknown) {
@@ -16,4 +25,3 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }
-
