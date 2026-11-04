@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, X, Eye, EyeOff, ExternalLink, Sparkles } from 'lucide-react';
+import { Plus, Edit, Trash2, X, Eye, EyeOff, ExternalLink, Sparkles, CheckCircle2, Layers } from 'lucide-react';
 import { Category } from '@/types';
 import ImageUploader from '@/components/ImageUploader';
 import ConfirmationModal from '@/components/ConfirmationModal';
@@ -26,6 +26,8 @@ const PRESETS = [
   { name: 'Solar', description: 'Solar panels and complete solar power solutions.', icon: 'sun', image_url: '/images/prod-solar-inverter.jpg' },
   { name: 'Pumps', description: 'Water pumps and pumping solutions.', icon: 'droplet', image_url: '/images/cat-plumbing.jpg' },
   { name: 'Water Heaters', description: 'Modern and efficient water heating solutions.', icon: 'flame', image_url: '/images/cat-sanitary.jpg' },
+  { name: 'Electricals', description: 'Wires, cables, switches, MCBs and lighting accessories.', icon: 'plug', image_url: '/images/cat-electricals.jpg' },
+  { name: 'Sanitary', description: 'Premium sanitary ware, bathroom fittings and related products.', icon: 'bath', image_url: '/images/cat-sanitary.jpg' },
 ];
 
 export default function AdminCategoriesPage() {
@@ -176,7 +178,12 @@ export default function AdminCategoriesPage() {
         });
       }
 
-      const res = await fetch(`/api/categories?id=${categoryToDelete.id}`, {
+      const params = new URLSearchParams();
+      if (categoryToDelete.id) params.set('id', categoryToDelete.id);
+      if (categoryToDelete.slug) params.set('slug', categoryToDelete.slug);
+      if (categoryToDelete.name) params.set('name', categoryToDelete.name);
+
+      const res = await fetch(`/api/categories?${params.toString()}`, {
         method: 'DELETE',
       });
       const data = await res.json();
@@ -184,8 +191,12 @@ export default function AdminCategoriesPage() {
       if (res.ok && data.success) {
         toast.success('Category Deleted', {
           id: toastId,
-          description: `${categoryToDelete.name} was deleted.`,
+          description: `${categoryToDelete.name} was permanently removed.`,
         });
+        // Optimistically remove from state so UI updates immediately
+        setCategories((prev) =>
+          prev.filter((c) => c.id !== categoryToDelete.id && c.slug !== categoryToDelete.slug)
+        );
         setShowDeleteModal(false);
         setCategoryToDelete(null);
         fetchCategories();
@@ -200,6 +211,16 @@ export default function AdminCategoriesPage() {
     }
   };
 
+  // Compute rank among visible categories to show which 5 appear on Storefront
+  let currentVisibleRank = 0;
+  const visibleRanks = new Map<string, number>();
+  for (const c of categories) {
+    if (c.is_visible !== false) {
+      currentVisibleRank += 1;
+      visibleRanks.set(c.id || c.slug, currentVisibleRank);
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
@@ -209,8 +230,9 @@ export default function AdminCategoriesPage() {
             STORE TAXONOMY &amp; HOMEPAGE CATEGORIES
           </span>
           <h1 className="text-2xl font-black text-slate-900 mt-0.5">Product Categories</h1>
-          <p className="text-xs text-slate-500 mt-1 max-w-2xl">
-            Manage category cards, custom images, descriptions, ordering, homepage visibility, and icons.
+          <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
+            Manage category cards, custom images, descriptions, display order, and visibility.
+            The top 5 visible cards (#1 to #5) will be featured on the Storefront Homepage.
           </p>
         </div>
 
@@ -221,6 +243,26 @@ export default function AdminCategoriesPage() {
           <Plus className="w-4 h-4 text-sky-400" />
           <span>Add New Category</span>
         </button>
+      </div>
+
+      {/* Info Banner: Explaining Storefront Top 5 vs All Categories */}
+      <div className="bg-sky-50/70 border border-sky-100 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-sky-900">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-sky-500 text-white flex items-center justify-center font-black shrink-0">
+            5
+          </div>
+          <div>
+            <p className="font-bold">Storefront Homepage Features Top 5 Cards</p>
+            <p className="text-sky-700 text-[11px] mt-0.5">
+              The first 5 visible cards (tagged <span className="font-bold text-sky-900">★ Storefront Top 5</span>) appear on the homepage.
+              Additional categories wrap into next rows below and remain active across the full product catalog.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-600 shrink-0">
+          <Layers className="w-4 h-4 text-sky-600" />
+          <span>Total Categories: {categories.length}</span>
+        </div>
       </div>
 
       {/* Quick Add Presets Bar */}
@@ -247,18 +289,20 @@ export default function AdminCategoriesPage() {
         })}
       </div>
 
-      {/* Categories Grid */}
+      {/* Categories Grid (Wraps into next rows: 4 per row on desktop, cards 5+ on bottom rows) */}
       {isLoading ? (
-        <div className="p-12 text-center text-sm font-medium text-slate-400">Loading categories...</div>
+        <div className="p-16 text-center text-sm font-medium text-slate-400">Loading categories...</div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {categories.map((cat) => {
             const isVisible = cat.is_visible !== false;
+            const rank = visibleRanks.get(cat.id || cat.slug);
+            const isTop5Storefront = isVisible && rank !== undefined && rank <= 5;
 
             return (
               <div
-                key={cat.id}
-                className={`bg-white rounded-3xl border transition-all duration-200 shadow-md overflow-hidden flex flex-col justify-between group ${
+                key={cat.id || cat.slug}
+                className={`bg-white rounded-3xl border transition-all duration-200 shadow-md hover:shadow-xl overflow-hidden flex flex-col justify-between group ${
                   isVisible ? 'border-slate-200/90' : 'border-dashed border-slate-300 opacity-75'
                 }`}
               >
@@ -270,31 +314,45 @@ export default function AdminCategoriesPage() {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
 
-                  {/* Top Badges */}
-                  <div className="absolute top-3 left-3 flex items-center gap-1.5">
-                    <span className="px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-xs text-white text-[10px] font-bold tracking-wider uppercase shadow-xs">
-                      #{cat.display_order ?? 1}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleVisibility(cat)}
-                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase transition-all shadow-xs flex items-center gap-1 cursor-pointer ${
-                        isVisible
-                          ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                          : 'bg-slate-700 text-slate-200 hover:bg-slate-800'
-                      }`}
-                      title={isVisible ? 'Click to hide from homepage' : 'Click to show on homepage'}
-                    >
-                      {isVisible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                      <span>{isVisible ? 'Visible' : 'Hidden'}</span>
-                    </button>
+                  {/* Top Left Badges */}
+                  <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-2.5 py-1 rounded-lg bg-black/75 backdrop-blur-xs text-white text-[10px] font-black tracking-wider uppercase shadow-xs">
+                        #{cat.display_order ?? 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleVisibility(cat)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase transition-all shadow-xs flex items-center gap-1 cursor-pointer ${
+                          isVisible
+                            ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                            : 'bg-slate-700 text-slate-200 hover:bg-slate-800'
+                        }`}
+                        title={isVisible ? 'Click to hide from homepage' : 'Click to show on homepage'}
+                      >
+                        {isVisible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                        <span>{isVisible ? 'Visible' : 'Hidden'}</span>
+                      </button>
+                    </div>
+
+                    {/* Storefront Feature Indicator */}
+                    {isTop5Storefront ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-600/90 backdrop-blur-xs text-white text-[9px] font-extrabold tracking-wide uppercase shadow-2xs">
+                        <CheckCircle2 className="w-2.5 h-2.5" />
+                        <span>Homepage Card #{rank}</span>
+                      </span>
+                    ) : isVisible ? (
+                      <span className="px-2 py-0.5 rounded-md bg-slate-900/80 backdrop-blur-xs text-slate-200 text-[9px] font-bold tracking-wide uppercase shadow-2xs">
+                        Catalog Only
+                      </span>
+                    ) : null}
                   </div>
 
                   {/* Action Buttons */}
                   <div className="absolute top-3 right-3 flex items-center gap-1.5">
                     <button
                       onClick={() => handleOpenEdit(cat)}
-                      className="p-2 rounded-xl bg-white/90 hover:bg-white text-slate-700 shadow-md transition-transform active:scale-90 cursor-pointer"
+                      className="p-2 rounded-xl bg-white/95 hover:bg-white text-slate-700 shadow-md transition-transform active:scale-90 cursor-pointer"
                       title="Edit Category"
                     >
                       <Edit className="w-4 h-4" />
@@ -313,17 +371,19 @@ export default function AdminCategoriesPage() {
                 </div>
 
                 {/* Card Body */}
-                <div className="p-5 space-y-2.5">
-                  <div className="flex items-center gap-2">
-                    <CategoryIcon icon={cat.icon} name={cat.name} className="w-5 h-5 text-sky-600 shrink-0" />
-                    <h3 className="text-lg font-bold text-slate-900 group-hover:text-sky-600 transition-colors line-clamp-1">
-                      {cat.name}
-                    </h3>
-                  </div>
+                <div className="p-5 space-y-2.5 flex-1 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <CategoryIcon icon={cat.icon} name={cat.name} className="w-5 h-5 text-sky-600 shrink-0" />
+                      <h3 className="text-lg font-bold text-slate-900 group-hover:text-sky-600 transition-colors line-clamp-1">
+                        {cat.name}
+                      </h3>
+                    </div>
 
-                  <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed min-h-[32px]">
-                    {cat.description || 'No description provided.'}
-                  </p>
+                    <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed min-h-[32px] mt-1.5">
+                      {cat.description || 'No description provided.'}
+                    </p>
+                  </div>
 
                   <div className="pt-3 flex flex-col gap-1 text-[11px] font-medium text-slate-400 border-t border-slate-100">
                     <div className="flex items-center justify-between">
@@ -450,7 +510,7 @@ export default function AdminCategoriesPage() {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Display Order
+                    Display Order (1 - 5 for Homepage)
                   </label>
                   <input
                     type="number"
@@ -486,7 +546,7 @@ export default function AdminCategoriesPage() {
                 <div>
                   <span className="text-xs font-bold text-slate-800 block">Show on Homepage</span>
                   <span className="text-[11px] text-slate-500">
-                    Display this card in the homepage categories row
+                    Enable this card to be eligible for the homepage categories row
                   </span>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -530,7 +590,7 @@ export default function AdminCategoriesPage() {
       <ConfirmationModal
         isOpen={showDeleteModal}
         title="Delete Category?"
-        message={`Are you sure you want to delete "${categoryToDelete?.name}"?`}
+        message={`Are you sure you want to delete "${categoryToDelete?.name}"? It will be permanently removed.`}
         itemPreviewUrl={categoryToDelete?.image_url}
         itemTitle={categoryToDelete?.name}
         confirmLabel="Yes, Delete Category"

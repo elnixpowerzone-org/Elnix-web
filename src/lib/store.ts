@@ -232,6 +232,141 @@ interface CategoryMetaRecord {
   icon?: string;
 }
 
+// In-memory set for fast local deletion tracking
+const localDeletedCategoryKeys = new Set<string>();
+
+async function getDeletedCategoryKeys(): Promise<Set<string>> {
+  const result = new Set<string>(localDeletedCategoryKeys);
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      const { data, error } = await adminClient
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'deleted_categories')
+        .single();
+      if (!error && data?.value && Array.isArray((data.value as { keys?: string[] }).keys)) {
+        for (const k of (data.value as { keys: string[] }).keys) {
+          result.add(String(k).toLowerCase());
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }
+  return result;
+}
+
+async function markCategoryAsDeleted(keys: string[]) {
+  for (const k of keys) {
+    if (k) localDeletedCategoryKeys.add(String(k).toLowerCase());
+  }
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      const currentKeys = await getDeletedCategoryKeys();
+      for (const k of keys) {
+        if (k) currentKeys.add(String(k).toLowerCase());
+      }
+      await adminClient
+        .from('site_settings')
+        .upsert({
+          key: 'deleted_categories',
+          value: { keys: Array.from(currentKeys) },
+          updated_at: new Date().toISOString(),
+        });
+    } catch (err) {
+      console.warn('Failed to persist deleted category key:', err);
+    }
+  }
+}
+
+async function unmarkCategoryAsDeleted(keys: string[]) {
+  for (const k of keys) {
+    if (k) localDeletedCategoryKeys.delete(String(k).toLowerCase());
+  }
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      const currentKeys = await getDeletedCategoryKeys();
+      for (const k of keys) {
+        if (k) currentKeys.delete(String(k).toLowerCase());
+      }
+      await adminClient
+        .from('site_settings')
+        .upsert({
+          key: 'deleted_categories',
+          value: { keys: Array.from(currentKeys) },
+          updated_at: new Date().toISOString(),
+        });
+    } catch (err) {
+      console.warn('Failed to unmark deleted category key:', err);
+    }
+  }
+}
+
+async function getCustomCategories(): Promise<Category[]> {
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      const { data, error } = await adminClient
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'custom_categories')
+        .single();
+      if (!error && data?.value && Array.isArray((data.value as { categories?: Category[] }).categories)) {
+        return (data.value as { categories: Category[] }).categories;
+      }
+    } catch {
+      // Ignore
+    }
+  }
+  return [];
+}
+
+async function saveCustomCategoryToSettings(category: Category) {
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      const list = await getCustomCategories();
+      const idx = list.findIndex(c => c.id === category.id || c.slug === category.slug);
+      if (idx !== -1) {
+        list[idx] = { ...list[idx], ...category };
+      } else {
+        list.push(category);
+      }
+      await adminClient
+        .from('site_settings')
+        .upsert({
+          key: 'custom_categories',
+          value: { categories: list },
+          updated_at: new Date().toISOString(),
+        });
+    } catch (err) {
+      console.warn('Failed to persist custom category to site_settings:', err);
+    }
+  }
+}
+
+async function removeCustomCategoryFromSettings(idOrSlug: string) {
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      const list = await getCustomCategories();
+      const filtered = list.filter(c => c.id !== idOrSlug && c.slug !== idOrSlug);
+      await adminClient
+        .from('site_settings')
+        .upsert({
+          key: 'custom_categories',
+          value: { categories: filtered },
+          updated_at: new Date().toISOString(),
+        });
+    } catch (err) {
+      console.warn('Failed to remove custom category from site_settings:', err);
+    }
+  }
+}
+
 async function getHomepageCategoriesMeta(): Promise<Record<string, CategoryMetaRecord>> {
   const adminClient = createAdminClient();
   if (adminClient) {
@@ -242,7 +377,7 @@ async function getHomepageCategoriesMeta(): Promise<Record<string, CategoryMetaR
         .eq('key', 'homepage_categories')
         .single();
       if (!error && data?.value && typeof data.value === 'object') {
-        return (data.value.meta as Record<string, CategoryMetaRecord>) || {};
+        return ((data.value as { meta?: Record<string, CategoryMetaRecord> }).meta) || {};
       }
     } catch {
       // Ignore error and return empty object
@@ -277,7 +412,7 @@ async function saveHomepageCategoryMeta(identifier: string, meta: CategoryMetaRe
 // ---------------- CATEGORIES ----------------
 export async function getCategories(): Promise<Category[]> {
   const adminClient = createAdminClient();
-  let rawCategories: Category[] = [];
+  let supabaseCategories: Category[] = [];
 
   if (adminClient) {
     try {
@@ -286,21 +421,65 @@ export async function getCategories(): Promise<Category[]> {
         .select('*')
         .order('display_order', { ascending: true });
       if (!error && data) {
-        rawCategories = data as Category[];
+        supabaseCategories = data as Category[];
       }
     } catch (err) {
       console.warn('Supabase categories error:', err);
     }
   }
 
-  if (rawCategories.length === 0) {
-    rawCategories = [...categoriesStore];
+  // Load deleted keys, custom categories, and homepage meta from site_settings
+  const [deletedKeys, customCategories, metaMap] = await Promise.all([
+    getDeletedCategoryKeys(),
+    getCustomCategories(),
+    getHomepageCategoriesMeta(),
+  ]);
+
+  // Combine categories: initial presets + Supabase rows + custom categories + memory store
+  const categoryMap = new Map<string, Category>();
+
+  // 1. Initial presets
+  for (const cat of initialCategories) {
+    categoryMap.set(cat.slug, { ...cat });
   }
 
-  // Load custom metadata (visibility, custom_url, icon) from site_settings
-  const metaMap = await getHomepageCategoriesMeta();
+  // 2. Supabase categories (overlays presets)
+  for (const cat of supabaseCategories) {
+    const key = cat.slug || cat.id;
+    categoryMap.set(key, { ...(categoryMap.get(key) || {}), ...cat });
+  }
 
-  const enriched = rawCategories.map(cat => {
+  // 3. Custom categories in site_settings
+  for (const cat of customCategories) {
+    const key = cat.slug || cat.id;
+    categoryMap.set(key, { ...(categoryMap.get(key) || {}), ...cat });
+  }
+
+  // 4. Memory store
+  for (const cat of categoriesStore) {
+    const key = cat.slug || cat.id;
+    if (categoryMap.has(key)) {
+      categoryMap.set(key, { ...categoryMap.get(key)!, ...cat });
+    } else {
+      categoryMap.set(key, { ...cat });
+    }
+  }
+
+  // Filter out ANY category that has been marked as deleted
+  const filteredCategories: Category[] = [];
+  for (const cat of Array.from(categoryMap.values())) {
+    const isDeleted =
+      (cat.id && deletedKeys.has(cat.id.toLowerCase())) ||
+      (cat.slug && deletedKeys.has(cat.slug.toLowerCase())) ||
+      (cat.name && deletedKeys.has(cat.name.toLowerCase()));
+
+    if (!isDeleted) {
+      filteredCategories.push(cat);
+    }
+  }
+
+  // Enrich with metadata (icon, visibility, custom_url, product count)
+  const enriched = filteredCategories.map(cat => {
     const meta = metaMap[cat.id] || metaMap[cat.slug] || {};
     const icon = cat.icon || meta.icon || autoInferCategoryIcon(cat.slug || cat.name);
     const is_visible = cat.is_visible !== undefined ? cat.is_visible : (meta.is_visible !== undefined ? meta.is_visible : true);
@@ -323,22 +502,32 @@ export async function getCategories(): Promise<Category[]> {
 export async function saveCategory(category: Partial<Category>): Promise<Category> {
   const adminClient = createAdminClient();
   let savedCategory: Category | null = null;
+  const targetSlug = category.slug || `${(category.name || 'cat').toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+
+  // Unmark from deleted list if re-saving or re-adding
+  await unmarkCategoryAsDeleted([
+    category.id || '',
+    targetSlug,
+    category.name || '',
+  ]);
 
   if (adminClient) {
     try {
-      if (category.id && !category.id.startsWith('cat-')) {
+      const isUUID = !!(category.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(category.id));
+
+      if (isUUID) {
         const { data, error } = await adminClient
           .from('categories')
           .update({
             name: category.name,
-            slug: category.slug,
+            slug: targetSlug,
             description: category.description,
             image_url: category.image_url,
             public_id: category.public_id,
             display_order: category.display_order,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', category.id)
+          .eq('id', category.id!)
           .select()
           .single();
 
@@ -346,17 +535,16 @@ export async function saveCategory(category: Partial<Category>): Promise<Categor
           savedCategory = data as Category;
         }
       } else {
-        const generatedSlug = category.slug || `${(category.name || 'cat').toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now().toString().slice(-4)}`;
         const { data, error } = await adminClient
           .from('categories')
-          .insert({
+          .upsert({
             name: category.name || 'New Category',
-            slug: generatedSlug,
+            slug: targetSlug,
             description: category.description || '',
             image_url: category.image_url || '/images/cat-batteries.jpg',
             public_id: category.public_id || null,
             display_order: category.display_order ?? (categoriesStore.length + 1),
-          })
+          }, { onConflict: 'slug' })
           .select()
           .single();
 
@@ -369,24 +557,12 @@ export async function saveCategory(category: Partial<Category>): Promise<Categor
     }
   }
 
-  // Update in-memory fallback
-  if (category.id) {
-    const idx = categoriesStore.findIndex(c => c.id === category.id);
-    if (idx !== -1) {
-      categoriesStore[idx] = {
-        ...categoriesStore[idx],
-        ...category,
-        display_order: category.display_order ?? categoriesStore[idx].display_order,
-      };
-      savedCategory = savedCategory || categoriesStore[idx];
-    }
-  }
-
+  // Fallback category representation
   if (!savedCategory) {
-    const newCat: Category = {
-      id: category.id || `cat-${Date.now()}`,
+    savedCategory = {
+      id: category.id || `cat-${targetSlug}`,
       name: category.name || 'New Category',
-      slug: category.slug || `${(category.name || 'cat').toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+      slug: targetSlug,
       description: category.description || '',
       image_url: category.image_url || '/images/cat-batteries.jpg',
       public_id: category.public_id,
@@ -394,13 +570,32 @@ export async function saveCategory(category: Partial<Category>): Promise<Categor
       product_count: 0,
       is_visible: category.is_visible ?? true,
       custom_url: category.custom_url || '',
-      icon: category.icon || autoInferCategoryIcon(category.name),
+      icon: category.icon || autoInferCategoryIcon(category.name || targetSlug),
     };
-    categoriesStore.push(newCat);
-    savedCategory = newCat;
   }
 
-  // Save metadata (is_visible, custom_url, icon) to site_settings
+  // Update in-memory store
+  const existingIdx = categoriesStore.findIndex(c => c.id === savedCategory!.id || c.slug === savedCategory!.slug);
+  if (existingIdx !== -1) {
+    categoriesStore[existingIdx] = {
+      ...categoriesStore[existingIdx],
+      ...savedCategory,
+      ...category,
+    };
+  } else {
+    categoriesStore.push({ ...savedCategory, ...category });
+  }
+
+  // Save to persistent custom_categories in site_settings
+  await saveCustomCategoryToSettings({
+    ...savedCategory,
+    ...category,
+    is_visible: category.is_visible ?? true,
+    custom_url: category.custom_url || '',
+    icon: category.icon || autoInferCategoryIcon(savedCategory.name || savedCategory.slug),
+  });
+
+  // Save metadata to site_settings
   const metaId = savedCategory.id || savedCategory.slug;
   if (metaId) {
     await saveHomepageCategoryMeta(metaId, {
@@ -418,27 +613,41 @@ export async function saveCategory(category: Partial<Category>): Promise<Categor
   };
 }
 
-export async function deleteCategory(id: string): Promise<boolean> {
+export async function deleteCategory(id: string, extra?: { slug?: string; name?: string }): Promise<boolean> {
   const adminClient = createAdminClient();
-  if (adminClient && !id.startsWith('cat-')) {
+  const slug = extra?.slug || '';
+  const name = extra?.name || '';
+
+  // 1. Mark in persistent deleted list immediately so it never resurrects
+  await markCategoryAsDeleted([id, slug, name]);
+
+  // 2. Also mark as hidden in meta
+  if (id) await saveHomepageCategoryMeta(id, { is_visible: false });
+  if (slug) await saveHomepageCategoryMeta(slug, { is_visible: false });
+
+  // 3. Remove from custom_categories in site_settings
+  await removeCustomCategoryFromSettings(id);
+  if (slug) await removeCustomCategoryFromSettings(slug);
+
+  // 4. Try deleting from Supabase
+  if (adminClient) {
     try {
-      const { error } = await adminClient.from('categories').delete().eq('id', id);
-      if (!error) {
-        // also clean up meta
-        saveHomepageCategoryMeta(id, { is_visible: false });
-        return true;
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      if (isUUID) {
+        await adminClient.from('categories').delete().eq('id', id);
+      }
+      if (slug) {
+        await adminClient.from('categories').delete().eq('slug', slug);
       }
     } catch (err) {
-      console.warn('Supabase category delete error:', err);
+      console.warn('Supabase category delete attempt:', err);
     }
   }
 
-  const idx = categoriesStore.findIndex(c => c.id === id);
-  if (idx !== -1) {
-    categoriesStore.splice(idx, 1);
-    return true;
-  }
-  return false;
+  // 5. Remove from in-memory fallback store
+  categoriesStore = categoriesStore.filter(c => c.id !== id && c.slug !== id && (!slug || c.slug !== slug));
+
+  return true;
 }
 
 // ---------------- BRANDS ----------------
@@ -707,4 +916,3 @@ export async function updateHeroSettings(settings: Partial<HeroSettings>): Promi
   heroSettingsStore = updated;
   return heroSettingsStore;
 }
-

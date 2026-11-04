@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Category, Brand } from '@/types';
 import CategoryIcon from './CategoryIcon';
 import BrandLogo from './BrandLogo';
@@ -13,44 +13,14 @@ interface CategoriesSectionProps {
 }
 
 export default function CategoriesSection({ categories, brands = [] }: CategoriesSectionProps) {
-  // Only show categories that are marked visible
+  // Only show categories that are marked visible, fixed / maximum 5 cards for the homepage
   const visibleCategories = categories.filter((c) => c.is_visible !== false);
+  const displayCategories = visibleCategories.slice(0, 5);
+
   // Only show brands marked for homepage (is_channel_partner !== false)
   const visibleBrands = brands.filter((b) => b.is_channel_partner !== false);
 
-  const categoriesScrollRef = useRef<HTMLDivElement>(null);
   const brandsScrollRef = useRef<HTMLDivElement>(null);
-
-  const [canScrollCatLeft, setCanScrollCatLeft] = useState(false);
-  const [canScrollCatRight, setCanScrollCatRight] = useState(false);
-
-  // Check category scroll bounds
-  const updateCatScrollBounds = () => {
-    if (!categoriesScrollRef.current) return;
-    const { scrollLeft, scrollWidth, clientWidth } = categoriesScrollRef.current;
-    setCanScrollCatLeft(scrollLeft > 10);
-    setCanScrollCatRight(scrollLeft + clientWidth < scrollWidth - 10);
-  };
-
-  useEffect(() => {
-    updateCatScrollBounds();
-    const el = categoriesScrollRef.current;
-    if (!el) return;
-
-    el.addEventListener('scroll', updateCatScrollBounds, { passive: true });
-    window.addEventListener('resize', updateCatScrollBounds);
-
-    return () => {
-      el.removeEventListener('scroll', updateCatScrollBounds);
-      window.removeEventListener('resize', updateCatScrollBounds);
-    };
-  }, [visibleCategories]);
-
-  const scrollCategories = (direction: 'left' | 'right') => {
-    if (!categoriesScrollRef.current) return;
-    const offset = direction === 'left' ? -300 : 300;
-    categoriesScrollRef.current.scrollBy({ left: offset, behavior: 'smooth' });
-  };
 
   const scrollBrands = () => {
     if (!brandsScrollRef.current) return;
@@ -80,30 +50,8 @@ export default function CategoriesSection({ categories, brands = [] }: Categorie
             </p>
           </div>
 
-          {/* Header Action & Desktop Nav Controls */}
+          {/* Header Action */}
           <div className="flex items-center gap-3 shrink-0 self-start md:self-end">
-            {/* Desktop scroll arrows if more items exceed width */}
-            <div className="hidden sm:flex items-center gap-1.5 mr-1">
-              <button
-                type="button"
-                aria-label="Scroll categories left"
-                onClick={() => scrollCategories('left')}
-                disabled={!canScrollCatLeft}
-                className="w-9 h-9 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:text-sky-600 hover:border-sky-300 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer shadow-2xs"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                aria-label="Scroll categories right"
-                onClick={() => scrollCategories('right')}
-                disabled={!canScrollCatRight}
-                className="w-9 h-9 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:text-sky-600 hover:border-sky-300 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer shadow-2xs"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-
             <Link
               href="/products"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-sky-50/90 hover:bg-sky-100 text-sky-700 font-bold text-xs sm:text-sm border border-sky-100/90 shadow-2xs hover:shadow-xs transition-all group shrink-0"
@@ -114,64 +62,58 @@ export default function CategoriesSection({ categories, brands = [] }: Categorie
           </div>
         </div>
 
-        {/* Categories Row (Horizontal layout with smooth swipe / scroll) */}
-        <div className="relative -mx-4 px-4 sm:mx-0 sm:px-0">
-          <div
-            ref={categoriesScrollRef}
-            className="flex gap-4 sm:gap-5 overflow-x-auto pb-4 pt-1 scroll-smooth snap-x snap-mandatory scrollbar-none"
-            style={{ WebkitOverflowScrolling: 'touch' }}
-          >
-            {visibleCategories.map((cat) => {
-              const targetUrl = cat.custom_url || `/products?category=${cat.slug || cat.id}`;
+        {/* Categories Row (Fixed / Maximum 5 Cards in a Balanced 5-Column Grid on Desktop) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-5">
+          {displayCategories.map((cat) => {
+            const targetUrl = cat.custom_url || `/products?category=${cat.slug || cat.id}`;
 
-              return (
-                <div
-                  key={cat.id}
-                  className="w-[260px] sm:w-[275px] lg:min-w-[215px] lg:flex-1 shrink-0 snap-start bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 hover:border-sky-300 shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden group hover:-translate-y-1.5"
-                >
-                  <Link href={targetUrl} className="flex flex-col h-full">
-                    {/* Category Image Area */}
-                    <div className="relative h-44 sm:h-48 w-full bg-gradient-to-b from-sky-50/70 via-slate-50/40 to-slate-100/60 p-4 flex items-center justify-center overflow-hidden">
-                      <img
-                        src={cat.image_url}
-                        alt={cat.name}
-                        className="w-full h-full object-contain sm:object-cover rounded-xl group-hover:scale-105 transition-transform duration-500"
-                      />
-                    </div>
+            return (
+              <div
+                key={cat.id || cat.slug}
+                className="w-full bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 hover:border-sky-300 shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden group hover:-translate-y-1.5"
+              >
+                <Link href={targetUrl} className="flex flex-col h-full">
+                  {/* Category Image Area */}
+                  <div className="relative h-44 sm:h-48 w-full bg-gradient-to-b from-sky-50/70 via-slate-50/40 to-slate-100/60 p-4 flex items-center justify-center overflow-hidden">
+                    <img
+                      src={cat.image_url}
+                      alt={cat.name}
+                      className="w-full h-full object-contain sm:object-cover rounded-xl group-hover:scale-105 transition-transform duration-500"
+                    />
+                  </div>
 
-                    {/* Card Body */}
-                    <div className="p-5 flex-1 flex flex-col justify-between bg-white">
-                      <div>
-                        {/* Icon + Title */}
-                        <div className="flex items-center gap-2.5 mb-1.5">
-                          <CategoryIcon
-                            icon={cat.icon}
-                            name={cat.name}
-                            className="w-5 h-5 text-sky-600 shrink-0"
-                          />
-                          <h3 className="font-extrabold text-slate-900 text-base sm:text-lg group-hover:text-sky-600 transition-colors line-clamp-1">
-                            {cat.name}
-                          </h3>
-                        </div>
-
-                        {/* Description */}
-                        <p className="text-xs sm:text-[13px] text-slate-500 line-clamp-2 leading-relaxed">
-                          {cat.description}
-                        </p>
+                  {/* Card Body */}
+                  <div className="p-5 flex-1 flex flex-col justify-between bg-white">
+                    <div>
+                      {/* Icon + Title */}
+                      <div className="flex items-center gap-2.5 mb-1.5">
+                        <CategoryIcon
+                          icon={cat.icon}
+                          name={cat.name}
+                          className="w-5 h-5 text-sky-600 shrink-0"
+                        />
+                        <h3 className="font-extrabold text-slate-900 text-base sm:text-lg group-hover:text-sky-600 transition-colors line-clamp-1">
+                          {cat.name}
+                        </h3>
                       </div>
 
-                      {/* Arrow Action */}
-                      <div className="flex justify-end mt-4 pt-1">
-                        <div className="w-8 h-8 rounded-full bg-sky-50 text-sky-600 group-hover:bg-sky-600 group-hover:text-white flex items-center justify-center transition-all shadow-2xs group-hover:shadow-sm">
-                          <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-                        </div>
+                      {/* Description */}
+                      <p className="text-xs sm:text-[13px] text-slate-500 line-clamp-2 leading-relaxed">
+                        {cat.description}
+                      </p>
+                    </div>
+
+                    {/* Arrow Action */}
+                    <div className="flex justify-end mt-4 pt-1">
+                      <div className="w-8 h-8 rounded-full bg-sky-50 text-sky-600 group-hover:bg-sky-600 group-hover:text-white flex items-center justify-center transition-all shadow-2xs group-hover:shadow-sm">
+                        <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                       </div>
                     </div>
-                  </Link>
-                </div>
-              );
-            })}
-          </div>
+                  </div>
+                </Link>
+              </div>
+            );
+          })}
         </div>
 
         {/* Integrated Brands Row Directly Below Categories */}
