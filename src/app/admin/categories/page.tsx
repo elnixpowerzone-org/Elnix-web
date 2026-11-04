@@ -1,11 +1,34 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Tags, Plus, Edit, Trash2, X, FolderTree } from 'lucide-react';
+import { Plus, Edit, Trash2, X, Eye, EyeOff, ExternalLink, Sparkles, CheckCircle2, Layers } from 'lucide-react';
 import { Category } from '@/types';
 import ImageUploader from '@/components/ImageUploader';
 import ConfirmationModal from '@/components/ConfirmationModal';
+import CategoryIcon from '@/components/home/CategoryIcon';
 import { toast } from 'sonner';
+
+const ICON_OPTIONS = [
+  { value: 'battery', label: 'Battery (Automotive / Inverter)' },
+  { value: 'zap', label: 'Lightning / Inverter / UPS' },
+  { value: 'sun', label: 'Sun / Solar Panels' },
+  { value: 'droplet', label: 'Water Droplet / Pumps' },
+  { value: 'flame', label: 'Flame / Water Heaters' },
+  { value: 'plug', label: 'Plug / Electricals' },
+  { value: 'wrench', label: 'Wrench / Plumbing' },
+  { value: 'bath', label: 'Bath / Sanitary' },
+  { value: 'layers', label: 'Layers / General' },
+];
+
+const PRESETS = [
+  { name: 'Batteries', description: 'Automotive, inverter and industrial batteries.', icon: 'battery', image_url: '/images/cat-batteries.jpg' },
+  { name: 'Inverters', description: 'Home inverters, UPS and power backup solutions.', icon: 'zap', image_url: '/images/prod-inverter-battery.jpg' },
+  { name: 'Solar', description: 'Solar panels and complete solar power solutions.', icon: 'sun', image_url: '/images/prod-solar-inverter.jpg' },
+  { name: 'Pumps', description: 'Water pumps and pumping solutions.', icon: 'droplet', image_url: '/images/cat-plumbing.jpg' },
+  { name: 'Water Heaters', description: 'Modern and efficient water heating solutions.', icon: 'flame', image_url: '/images/cat-sanitary.jpg' },
+  { name: 'Electricals', description: 'Wires, cables, switches, MCBs and lighting accessories.', icon: 'plug', image_url: '/images/cat-electricals.jpg' },
+  { name: 'Sanitary', description: 'Premium sanitary ware, bathroom fittings and related products.', icon: 'bath', image_url: '/images/cat-sanitary.jpg' },
+];
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -46,13 +69,63 @@ export default function AdminCategoriesPage() {
       image_url: '',
       public_id: '',
       display_order: categories.length + 1,
+      is_visible: true,
+      custom_url: '',
+      icon: 'layers',
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleApplyPreset = (preset: typeof PRESETS[0]) => {
+    setEditingCategory({
+      name: preset.name,
+      slug: preset.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+      description: preset.description,
+      image_url: preset.image_url,
+      public_id: '',
+      display_order: categories.length + 1,
+      is_visible: true,
+      custom_url: '',
+      icon: preset.icon,
     });
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (cat: Category) => {
-    setEditingCategory({ ...cat });
+    setEditingCategory({
+      ...cat,
+      is_visible: cat.is_visible !== false,
+      display_order: cat.display_order ?? 1,
+      custom_url: cat.custom_url || '',
+      icon: cat.icon || 'layers',
+    });
     setIsModalOpen(true);
+  };
+
+  const handleToggleVisibility = async (cat: Category) => {
+    const updatedVisible = cat.is_visible === false ? true : false;
+    const toastId = toast.loading(`${updatedVisible ? 'Enabling' : 'Hiding'} ${cat.name}...`);
+
+    try {
+      const res = await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...cat,
+          is_visible: updatedVisible,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(`${cat.name} is now ${updatedVisible ? 'visible on homepage' : 'hidden from homepage'}`, { id: toastId });
+        fetchCategories();
+      } else {
+        throw new Error(data.error || 'Failed to update visibility');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error';
+      toast.error('Failed to update visibility', { id: toastId, description: msg });
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -105,7 +178,12 @@ export default function AdminCategoriesPage() {
         });
       }
 
-      const res = await fetch(`/api/categories?id=${categoryToDelete.id}`, {
+      const params = new URLSearchParams();
+      if (categoryToDelete.id) params.set('id', categoryToDelete.id);
+      if (categoryToDelete.slug) params.set('slug', categoryToDelete.slug);
+      if (categoryToDelete.name) params.set('name', categoryToDelete.name);
+
+      const res = await fetch(`/api/categories?${params.toString()}`, {
         method: 'DELETE',
       });
       const data = await res.json();
@@ -113,8 +191,12 @@ export default function AdminCategoriesPage() {
       if (res.ok && data.success) {
         toast.success('Category Deleted', {
           id: toastId,
-          description: `${categoryToDelete.name} was deleted.`,
+          description: `${categoryToDelete.name} was permanently removed.`,
         });
+        // Optimistically remove from state so UI updates immediately
+        setCategories((prev) =>
+          prev.filter((c) => c.id !== categoryToDelete.id && c.slug !== categoryToDelete.slug)
+        );
         setShowDeleteModal(false);
         setCategoryToDelete(null);
         fetchCategories();
@@ -129,83 +211,205 @@ export default function AdminCategoriesPage() {
     }
   };
 
+  // Compute rank among visible categories to show which 5 appear on Storefront
+  let currentVisibleRank = 0;
+  const visibleRanks = new Map<string, number>();
+  for (const c of categories) {
+    if (c.is_visible !== false) {
+      currentVisibleRank += 1;
+      visibleRanks.set(c.id || c.slug, currentVisibleRank);
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200/90 shadow-2xs">
         <div>
           <span className="text-xs font-bold text-sky-600 uppercase tracking-wider block">
-            STORE TAXONOMY
+            STORE TAXONOMY &amp; HOMEPAGE CATEGORIES
           </span>
           <h1 className="text-2xl font-black text-slate-900 mt-0.5">Product Categories</h1>
-          <p className="text-xs text-slate-500">
-            Configure primary wholesale & retail categories displayed across the website.
+          <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
+            Manage category cards, custom images, descriptions, display order, and visibility.
+            The top 5 visible cards (#1 to #5) will be featured on the Storefront Homepage.
           </p>
         </div>
 
         <button
           onClick={handleOpenAdd}
-          className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#0b1a30] hover:bg-sky-600 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md hover:shadow-lg cursor-pointer self-start sm:self-center"
+          className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#0b1a30] hover:bg-sky-600 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md hover:shadow-lg cursor-pointer self-start sm:self-center shrink-0"
         >
           <Plus className="w-4 h-4 text-sky-400" />
           <span>Add New Category</span>
         </button>
       </div>
 
-      {/* Categories Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {categories.map((cat) => (
-          <div
-            key={cat.id}
-            className="bg-white rounded-3xl border border-slate-200/90 shadow-md overflow-hidden flex flex-col justify-between group"
-          >
-            <div className="relative aspect-4/3 w-full bg-slate-100 overflow-hidden">
-              <img
-                src={cat.image_url}
-                alt={cat.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              />
-              <div className="absolute top-3 right-3 flex items-center gap-1.5">
-                <button
-                  onClick={() => handleOpenEdit(cat)}
-                  className="p-2 rounded-xl bg-white/90 hover:bg-white text-slate-700 shadow-md transition-transform active:scale-90"
-                  title="Edit"
-                >
-                  <Edit className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => {
-                    setCategoryToDelete(cat);
-                    setShowDeleteModal(true);
-                  }}
-                  className="p-2 rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-md transition-transform active:scale-90"
-                  title="Delete"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-5 space-y-2">
-              <h3 className="text-lg font-bold text-slate-900">{cat.name}</h3>
-              <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
-                {cat.description}
-              </p>
-              <div className="pt-2 flex items-center justify-between text-xs font-semibold text-slate-400 border-t border-slate-100">
-                <span>Slug: /{cat.slug}</span>
-                {cat.product_count !== undefined && (
-                  <span className="text-sky-600 font-bold">{cat.product_count} products</span>
-                )}
-              </div>
-            </div>
+      {/* Info Banner: Explaining Storefront Top 5 vs All Categories */}
+      <div className="bg-sky-50/70 border border-sky-100 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-sky-900">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-sky-500 text-white flex items-center justify-center font-black shrink-0">
+            5
           </div>
-        ))}
+          <div>
+            <p className="font-bold">Storefront Homepage Features Top 5 Cards</p>
+            <p className="text-sky-700 text-[11px] mt-0.5">
+              The first 5 visible cards (tagged <span className="font-bold text-sky-900">★ Storefront Top 5</span>) appear on the homepage.
+              Additional categories wrap into next rows below and remain active across the full product catalog.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-600 shrink-0">
+          <Layers className="w-4 h-4 text-sky-600" />
+          <span>Total Categories: {categories.length}</span>
+        </div>
       </div>
+
+      {/* Quick Add Presets Bar */}
+      <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex flex-wrap items-center gap-2.5">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 mr-1">
+          <Sparkles className="w-3.5 h-3.5 text-sky-600" />
+          <span>Quick Presets:</span>
+        </div>
+        {PRESETS.map((p) => {
+          const alreadyExists = categories.some((c) => c.name.toLowerCase() === p.name.toLowerCase());
+          return (
+            <button
+              key={p.name}
+              type="button"
+              disabled={alreadyExists}
+              onClick={() => handleApplyPreset(p)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-sky-300 text-xs font-bold text-slate-700 hover:text-sky-600 disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:text-slate-700 transition-all cursor-pointer shadow-2xs"
+            >
+              <CategoryIcon icon={p.icon} name={p.name} className="w-3.5 h-3.5 text-sky-600" />
+              <span>{p.name}</span>
+              {alreadyExists ? <span className="text-[10px] text-slate-400 font-normal">(Added)</span> : <span className="text-sky-600 font-black">+</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Categories Grid (Wraps into next rows: 4 per row on desktop, cards 5+ on bottom rows) */}
+      {isLoading ? (
+        <div className="p-16 text-center text-sm font-medium text-slate-400">Loading categories...</div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {categories.map((cat) => {
+            const isVisible = cat.is_visible !== false;
+            const rank = visibleRanks.get(cat.id || cat.slug);
+            const isTop5Storefront = isVisible && rank !== undefined && rank <= 5;
+
+            return (
+              <div
+                key={cat.id || cat.slug}
+                className={`bg-white rounded-3xl border transition-all duration-200 shadow-md hover:shadow-xl overflow-hidden flex flex-col justify-between group ${
+                  isVisible ? 'border-slate-200/90' : 'border-dashed border-slate-300 opacity-75'
+                }`}
+              >
+                {/* Image Area */}
+                <div className="relative aspect-4/3 w-full bg-slate-100 overflow-hidden">
+                  <img
+                    src={cat.image_url}
+                    alt={cat.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+
+                  {/* Top Left Badges */}
+                  <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-2.5 py-1 rounded-lg bg-black/75 backdrop-blur-xs text-white text-[10px] font-black tracking-wider uppercase shadow-xs">
+                        #{cat.display_order ?? 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleVisibility(cat)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase transition-all shadow-xs flex items-center gap-1 cursor-pointer ${
+                          isVisible
+                            ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                            : 'bg-slate-700 text-slate-200 hover:bg-slate-800'
+                        }`}
+                        title={isVisible ? 'Click to hide from homepage' : 'Click to show on homepage'}
+                      >
+                        {isVisible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                        <span>{isVisible ? 'Visible' : 'Hidden'}</span>
+                      </button>
+                    </div>
+
+                    {/* Storefront Feature Indicator */}
+                    {isTop5Storefront ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-600/90 backdrop-blur-xs text-white text-[9px] font-extrabold tracking-wide uppercase shadow-2xs">
+                        <CheckCircle2 className="w-2.5 h-2.5" />
+                        <span>Homepage Card #{rank}</span>
+                      </span>
+                    ) : isVisible ? (
+                      <span className="px-2 py-0.5 rounded-md bg-slate-900/80 backdrop-blur-xs text-slate-200 text-[9px] font-bold tracking-wide uppercase shadow-2xs">
+                        Catalog Only
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleOpenEdit(cat)}
+                      className="p-2 rounded-xl bg-white/95 hover:bg-white text-slate-700 shadow-md transition-transform active:scale-90 cursor-pointer"
+                      title="Edit Category"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCategoryToDelete(cat);
+                        setShowDeleteModal(true);
+                      }}
+                      className="p-2 rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-md transition-transform active:scale-90 cursor-pointer"
+                      title="Delete Category"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Card Body */}
+                <div className="p-5 space-y-2.5 flex-1 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <CategoryIcon icon={cat.icon} name={cat.name} className="w-5 h-5 text-sky-600 shrink-0" />
+                      <h3 className="text-lg font-bold text-slate-900 group-hover:text-sky-600 transition-colors line-clamp-1">
+                        {cat.name}
+                      </h3>
+                    </div>
+
+                    <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed min-h-[32px] mt-1.5">
+                      {cat.description || 'No description provided.'}
+                    </p>
+                  </div>
+
+                  <div className="pt-3 flex flex-col gap-1 text-[11px] font-medium text-slate-400 border-t border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <span>Slug: /{cat.slug}</span>
+                      {cat.product_count !== undefined && (
+                        <span className="text-sky-600 font-bold">{cat.product_count} products</span>
+                      )}
+                    </div>
+                    {cat.custom_url && (
+                      <div className="flex items-center gap-1 text-slate-500 truncate">
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{cat.custom_url}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Add / Edit Category Modal */}
       {isModalOpen && editingCategory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+          <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-8">
             <div className="bg-[#0b1a30] text-white p-6 flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-black text-sky-400 uppercase tracking-widest block">
@@ -217,15 +421,15 @@ export default function AdminCategoriesPage() {
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1"
+                className="text-slate-400 hover:text-white p-1 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="p-6 space-y-4">
+            <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
               <ImageUploader
-                label="Category Cover Image (Cloudinary)"
+                label="Category Cover Image (Cloudinary or URL)"
                 value={editingCategory.image_url}
                 publicId={editingCategory.public_id}
                 folder="elnix_categories"
@@ -238,31 +442,127 @@ export default function AdminCategoriesPage() {
                 }}
               />
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Category Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Solar & Renewable Power"
-                  value={editingCategory.name || ''}
-                  onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Category Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Inverters"
+                    value={editingCategory.name || ''}
+                    onChange={(e) =>
+                      setEditingCategory({
+                        ...editingCategory,
+                        name: e.target.value,
+                        slug: editingCategory.slug || e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+                      })
+                    }
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Slug
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. inverters"
+                    value={editingCategory.slug || ''}
+                    onChange={(e) => setEditingCategory({ ...editingCategory, slug: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Description
+                  Short Description
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Short overview of items in this category..."
+                  placeholder="e.g. Home inverters, UPS and power backup solutions."
                   value={editingCategory.description || ''}
                   onChange={(e) => setEditingCategory({ ...editingCategory, description: e.target.value })}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Category Icon
+                  </label>
+                  <select
+                    value={editingCategory.icon || 'layers'}
+                    onChange={(e) => setEditingCategory({ ...editingCategory, icon: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer"
+                  >
+                    {ICON_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Display Order (1 - 5 for Homepage)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="1"
+                    value={editingCategory.display_order ?? 1}
+                    onChange={(e) =>
+                      setEditingCategory({
+                        ...editingCategory,
+                        display_order: parseInt(e.target.value, 10) || 1,
+                      })
+                    }
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Custom Destination Link (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Defaults to /products?category=slug"
+                  value={editingCategory.custom_url || ''}
+                  onChange={(e) => setEditingCategory({ ...editingCategory, custom_url: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+              </div>
+
+              {/* Homepage Visibility Toggle */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/90 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-slate-800 block">Show on Homepage</span>
+                  <span className="text-[11px] text-slate-500">
+                    Enable this card to be eligible for the homepage categories row
+                  </span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editingCategory.is_visible !== false}
+                    onChange={(e) =>
+                      setEditingCategory({
+                        ...editingCategory,
+                        is_visible: e.target.checked,
+                      })
+                    }
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600" />
+                </label>
               </div>
 
               <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
@@ -290,7 +590,7 @@ export default function AdminCategoriesPage() {
       <ConfirmationModal
         isOpen={showDeleteModal}
         title="Delete Category?"
-        message={`Are you sure you want to delete "${categoryToDelete?.name}"?`}
+        message={`Are you sure you want to delete "${categoryToDelete?.name}"? It will be permanently removed.`}
         itemPreviewUrl={categoryToDelete?.image_url}
         itemTitle={categoryToDelete?.name}
         confirmLabel="Yes, Delete Category"
@@ -304,4 +604,3 @@ export default function AdminCategoriesPage() {
     </div>
   );
 }
-
