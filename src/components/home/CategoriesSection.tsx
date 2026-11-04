@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { Category, Brand } from '@/types';
@@ -12,6 +12,28 @@ interface CategoriesSectionProps {
   brands?: Brand[];
 }
 
+function CategoryCardImage({ src, alt, icon }: { src?: string; alt: string; icon?: string }) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  if (!src || imageFailed) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-sky-50/80 to-slate-100 text-slate-400 p-4">
+        <CategoryIcon icon={icon} name={alt} className="w-10 h-10 text-sky-500/80 mb-2" />
+        <span className="text-xs font-bold text-slate-600 line-clamp-1 text-center">{alt}</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      onError={() => setImageFailed(true)}
+      className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+    />
+  );
+}
+
 export default function CategoriesSection({ categories, brands = [] }: CategoriesSectionProps) {
   // Only show categories that are marked visible, fixed / maximum 5 cards for the homepage
   const visibleCategories = categories.filter((c) => c.is_visible !== false);
@@ -20,18 +42,22 @@ export default function CategoriesSection({ categories, brands = [] }: Categorie
   // Only show brands marked for homepage (is_channel_partner !== false)
   const visibleBrands = brands.filter((b) => b.is_channel_partner !== false);
 
-  const brandsScrollRef = useRef<HTMLDivElement>(null);
+  const [isMarqueePaused, setIsMarqueePaused] = useState(false);
+  const marqueeContainerRef = useRef<HTMLDivElement>(null);
 
+  // Manual scroll handler for indicator buttons
   const scrollBrands = () => {
-    if (!brandsScrollRef.current) return;
-    const { scrollLeft, scrollWidth, clientWidth } = brandsScrollRef.current;
-    // If at or near the end, loop back smoothly, otherwise scroll right
-    if (scrollLeft + clientWidth >= scrollWidth - 20) {
-      brandsScrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
-    } else {
-      brandsScrollRef.current.scrollBy({ left: 240, behavior: 'smooth' });
-    }
+    if (!marqueeContainerRef.current) return;
+    marqueeContainerRef.current.scrollBy({ left: 240, behavior: 'smooth' });
   };
+
+  // Ensure sufficient duplicate items for a seamless visual loop without blank gaps
+  const baseBrands = visibleBrands.length > 0 ? visibleBrands : [];
+  // Ensure we have at least 8 items in the sequence before creating the duplicate loop
+  let loopedSequence = [...baseBrands];
+  while (loopedSequence.length > 0 && loopedSequence.length < 8) {
+    loopedSequence = [...loopedSequence, ...baseBrands];
+  }
 
   return (
     <section className="py-16 sm:py-20 lg:py-24 bg-white relative overflow-hidden">
@@ -73,17 +99,17 @@ export default function CategoriesSection({ categories, brands = [] }: Categorie
                 className="w-full bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 hover:border-sky-300 shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden group hover:-translate-y-1.5"
               >
                 <Link href={targetUrl} className="flex flex-col h-full">
-                  {/* Category Image Area */}
-                  <div className="relative h-44 sm:h-48 w-full bg-gradient-to-b from-sky-50/70 via-slate-50/40 to-slate-100/60 p-4 flex items-center justify-center overflow-hidden">
-                    <img
+                  {/* Category Image Area - Edge-to-edge full bleed with rounded top corners */}
+                  <div className="relative h-44 sm:h-48 w-full bg-slate-100 overflow-hidden shrink-0">
+                    <CategoryCardImage
                       src={cat.image_url}
                       alt={cat.name}
-                      className="w-full h-full object-contain sm:object-cover rounded-xl group-hover:scale-105 transition-transform duration-500"
+                      icon={cat.icon}
                     />
                   </div>
 
                   {/* Card Body */}
-                  <div className="p-5 flex-1 flex flex-col justify-between bg-white">
+                  <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between bg-white">
                     <div>
                       {/* Icon + Title */}
                       <div className="flex items-center gap-2.5 mb-1.5">
@@ -144,32 +170,67 @@ export default function CategoriesSection({ categories, brands = [] }: Categorie
             {/* Vertical Divider (Desktop) */}
             <div className="hidden lg:block h-10 w-px bg-slate-200 mx-1 shrink-0" />
 
-            {/* Right Brand Cards Horizontal Scroll */}
-            <div className="flex items-center gap-3 overflow-hidden flex-1">
+            {/* Continuous Horizontal Auto-Scrolling Track */}
+            <div
+              ref={marqueeContainerRef}
+              className="brand-marquee-container flex items-center gap-3 overflow-hidden flex-1 relative select-none"
+              onMouseEnter={() => setIsMarqueePaused(true)}
+              onMouseLeave={() => setIsMarqueePaused(false)}
+              onTouchStart={() => setIsMarqueePaused(true)}
+              onTouchEnd={() => setIsMarqueePaused(false)}
+            >
               <div
-                ref={brandsScrollRef}
-                className="flex items-center gap-3 sm:gap-4 overflow-x-auto scroll-smooth scrollbar-none snap-x py-1 flex-1"
-                style={{ WebkitOverflowScrolling: 'touch' }}
+                className="brand-marquee-track flex items-center gap-3 sm:gap-4 py-1"
+                style={{
+                  animationPlayState: isMarqueePaused ? 'paused' : 'running',
+                }}
               >
-                {visibleBrands.map((b) => {
-                  const href = b.website?.startsWith('http')
-                    ? b.website
-                    : `/products?brand=${b.slug || b.id}`;
-                  const isExternal = Boolean(b.website?.startsWith('http'));
+                {/* Track Sequence 1 (Primary) */}
+                <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+                  {loopedSequence.map((b, idx) => {
+                    const href = b.website?.startsWith('http')
+                      ? b.website
+                      : `/products?brand=${b.slug || b.id}`;
+                    const isExternal = Boolean(b.website?.startsWith('http'));
 
-                  return (
-                    <a
-                      key={b.id}
-                      href={href}
-                      target={isExternal ? '_blank' : undefined}
-                      rel={isExternal ? 'noopener noreferrer' : undefined}
-                      title={b.name}
-                      className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:border-sky-300 transition-all px-4 sm:px-6 py-2.5 sm:py-3 h-14 sm:h-16 flex items-center justify-center min-w-[120px] sm:min-w-[135px] shrink-0 snap-start group cursor-pointer"
-                    >
-                      <BrandLogo brand={b} />
-                    </a>
-                  );
-                })}
+                    return (
+                      <a
+                        key={`b1-${b.id || b.slug}-${idx}`}
+                        href={href}
+                        target={isExternal ? '_blank' : undefined}
+                        rel={isExternal ? 'noopener noreferrer' : undefined}
+                        title={b.name}
+                        className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:border-sky-300 transition-all px-4 sm:px-6 py-2.5 sm:py-3 h-14 sm:h-16 flex items-center justify-center min-w-[120px] sm:min-w-[135px] shrink-0 group cursor-pointer"
+                      >
+                        <BrandLogo brand={b} />
+                      </a>
+                    );
+                  })}
+                </div>
+
+                {/* Track Sequence 2 (Duplicate for Seamless Infinite Visual Looping) */}
+                <div className="flex items-center gap-3 sm:gap-4 shrink-0" aria-hidden="true">
+                  {loopedSequence.map((b, idx) => {
+                    const href = b.website?.startsWith('http')
+                      ? b.website
+                      : `/products?brand=${b.slug || b.id}`;
+                    const isExternal = Boolean(b.website?.startsWith('http'));
+
+                    return (
+                      <a
+                        key={`b2-${b.id || b.slug}-${idx}`}
+                        href={href}
+                        tabIndex={-1}
+                        target={isExternal ? '_blank' : undefined}
+                        rel={isExternal ? 'noopener noreferrer' : undefined}
+                        title={b.name}
+                        className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:border-sky-300 transition-all px-4 sm:px-6 py-2.5 sm:py-3 h-14 sm:h-16 flex items-center justify-center min-w-[120px] sm:min-w-[135px] shrink-0 group cursor-pointer"
+                      >
+                        <BrandLogo brand={b} />
+                      </a>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Desktop Scroll Next Button */}
@@ -177,7 +238,7 @@ export default function CategoriesSection({ categories, brands = [] }: Categorie
                 type="button"
                 aria-label="Scroll brands right"
                 onClick={scrollBrands}
-                className="hidden lg:flex w-8 h-8 rounded-full bg-white border border-slate-200 shadow-2xs items-center justify-center text-slate-600 hover:text-sky-600 hover:border-sky-300 active:scale-95 transition-all cursor-pointer shrink-0 ml-1"
+                className="hidden lg:flex w-8 h-8 rounded-full bg-white border border-slate-200 shadow-2xs items-center justify-center text-slate-600 hover:text-sky-600 hover:border-sky-300 active:scale-95 transition-all cursor-pointer shrink-0 ml-1 z-10"
               >
                 <ArrowRight className="w-4 h-4" />
               </button>
