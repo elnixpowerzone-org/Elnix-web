@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { getCategories, saveCategory, deleteCategory } from '@/lib/store';
+import { requireAdmin } from '@/lib/auth/admin';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const categories = await getCategories();
@@ -8,8 +11,14 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const authError = await requireAdmin(req);
+  if (authError) return authError;
+
   try {
     const body = await req.json();
+    if (!body || typeof body !== 'object' || !body.name) {
+      return NextResponse.json({ success: false, error: 'Category name is required' }, { status: 400 });
+    }
     const category = await saveCategory(body);
     revalidatePath('/');
     revalidatePath('/products');
@@ -21,6 +30,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const authError = await requireAdmin(req);
+  if (authError) return authError;
+
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id') || '';
   const slug = searchParams.get('slug') || '';

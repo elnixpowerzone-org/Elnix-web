@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getProducts, saveProduct } from '@/lib/store';
+import { requireAdmin } from '@/lib/auth/admin';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -13,8 +16,14 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const authError = await requireAdmin(req);
+  if (authError) return authError;
+
   try {
     const body = await req.json();
+    if (!body || typeof body !== 'object' || !body.name) {
+      return NextResponse.json({ success: false, error: 'Product name is required' }, { status: 400 });
+    }
     const product = await saveProduct(body);
     return NextResponse.json({ success: true, data: product });
   } catch (err: unknown) {
@@ -22,4 +31,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }
-

@@ -3,11 +3,23 @@ import cloudinary, { isCloudinaryConfigured } from '@/lib/cloudinary';
 import { Readable } from 'stream';
 import fs from 'fs/promises';
 import path from 'path';
+import { requireAdmin, validateCsrfProtection } from '@/lib/auth/admin';
 
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
+  const csrfError = validateCsrfProtection(req);
+  if (csrfError) return csrfError;
+  const authError = await requireAdmin(req);
+  if (authError) return authError;
   try {
+    const contentType = req.headers.get('content-type') || '';
+    if (!contentType.includes('multipart/form-data') && !contentType.includes('application/x-www-form-urlencoded')) {
+      return NextResponse.json(
+        { success: false, error: 'Content-Type must be multipart/form-data' },
+        { status: 400 }
+      );
+    }
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const folder = (formData.get('folder') as string) || 'elnix_powerzone';
