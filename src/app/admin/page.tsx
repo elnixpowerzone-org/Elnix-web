@@ -13,18 +13,20 @@ import {
   ShieldAlert,
   Sparkles,
   Phone,
-  Film
+  Film,
+  MapPin
 } from 'lucide-react';
-import { getProducts, getCategories, getBrands, getEnquiries } from '@/lib/store';
+import { getProducts, getCategories, getBrands, getEnquiries, getStoreLocations } from '@/lib/store';
 
 export const revalidate = 0; // Dynamic admin dashboard
 
 export default async function AdminDashboardPage() {
-  const [products, categories, brands, enquiries] = await Promise.all([
+  const [products, categories, brands, enquiries, locations] = await Promise.all([
     getProducts(),
     getCategories(),
     getBrands(),
     getEnquiries(),
+    getStoreLocations(),
   ]);
 
   const pendingEnquiries = enquiries.filter(e => e.status === 'pending');
@@ -98,6 +100,10 @@ export default async function AdminDashboardPage() {
             >
               <Inbox className="w-4 h-4 text-sky-400" />
               <span>Review Leads ({pendingEnquiries.length} pending)</span>
+            </Link>
+            <Link href="/admin/locations" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all border border-white/20">
+              <MapPin className="w-4 h-4 text-sky-400" />
+              <span>Locations ({locations.length})</span>
             </Link>
           </div>
         </div>

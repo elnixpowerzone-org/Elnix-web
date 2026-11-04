@@ -1,5 +1,5 @@
-import { Category, Brand, Product, Enquiry, SiteSettings, HeroSettings } from '@/types';
-import { initialCategories, initialBrands, initialProducts, initialEnquiries, initialSiteSettings, initialHeroSettings } from '@/data/initialData';
+import { Category, Brand, Product, Enquiry, SiteSettings, HeroSettings, StoreLocation } from '@/types';
+import { initialCategories, initialBrands, initialProducts, initialEnquiries, initialSiteSettings, initialHeroSettings, initialStoreLocations } from '@/data/initialData';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // In-memory / module-level state for demo/offline fallback mode
@@ -9,6 +9,7 @@ let productsStore: Product[] = [...initialProducts];
 let enquiriesStore: Enquiry[] = [...initialEnquiries];
 let settingsStore: SiteSettings = { ...initialSiteSettings };
 let heroSettingsStore: HeroSettings = { ...initialHeroSettings };
+let locationsStore: StoreLocation[] = [...initialStoreLocations];
 
 // ---------------- PRODUCTS ----------------
 export async function getProducts(options?: { category?: string; brand?: string; search?: string; featured?: boolean }) {
@@ -1104,6 +1105,10 @@ export async function getEnquiries(): Promise<Enquiry[]> {
 
 export async function createEnquiry(enquiry: Omit<Enquiry, 'id' | 'created_at'>): Promise<Enquiry> {
   const adminClient = createAdminClient();
+  const formattedMessage = enquiry.preferred_location
+    ? `[Preferred Branch: ${enquiry.preferred_location}]\n\n${enquiry.message}`
+    : enquiry.message;
+
   if (adminClient) {
     try {
       const { data, error } = await adminClient
@@ -1115,12 +1120,12 @@ export async function createEnquiry(enquiry: Omit<Enquiry, 'id' | 'created_at'>)
           type: enquiry.type || 'general',
           category: enquiry.category,
           product_name: enquiry.product_name,
-          message: enquiry.message,
+          message: formattedMessage,
           status: 'pending',
         })
         .select()
         .single();
-      if (!error && data) return data as Enquiry;
+      if (!error && data) return { ...data, preferred_location: enquiry.preferred_location } as Enquiry;
     } catch (err) {
       console.warn('Supabase create enquiry error:', err);
     }
@@ -1129,6 +1134,7 @@ export async function createEnquiry(enquiry: Omit<Enquiry, 'id' | 'created_at'>)
   const newEnq: Enquiry = {
     id: `enq-${Date.now()}`,
     ...enquiry,
+    message: formattedMessage,
     status: 'pending',
     created_at: new Date().toISOString(),
   };
@@ -1232,4 +1238,267 @@ export async function updateHeroSettings(settings: Partial<HeroSettings>): Promi
   }
   heroSettingsStore = updated;
   return heroSettingsStore;
+}
+
+// ---------------- STORE LOCATIONS ----------------
+const localDeletedLocationKeys = new Set<string>();
+
+async function getDeletedLocationKeys(): Promise<Set<string>> {
+  const result = new Set<string>(localDeletedLocationKeys);
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      const { data, error } = await adminClient
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'deleted_locations')
+        .single();
+      if (!error && data?.value && Array.isArray((data.value as { keys?: string[] }).keys)) {
+        for (const k of (data.value as { keys: string[] }).keys) {
+          result.add(String(k).toLowerCase());
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }
+  return result;
+}
+
+async function markLocationAsDeleted(keys: string[]) {
+  for (const k of keys) {
+    if (k) localDeletedLocationKeys.add(String(k).toLowerCase());
+  }
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      const currentKeys = await getDeletedLocationKeys();
+      for (const k of keys) {
+        if (k) currentKeys.add(String(k).toLowerCase());
+      }
+      await adminClient
+        .from('site_settings')
+        .upsert({
+          key: 'deleted_locations',
+          value: { keys: Array.from(currentKeys) },
+          updated_at: new Date().toISOString(),
+        });
+    } catch (err) {
+      console.warn('Failed to persist deleted location key:', err);
+    }
+  }
+}
+
+async function unmarkLocationAsDeleted(keys: string[]) {
+  for (const k of keys) {
+    if (k) localDeletedLocationKeys.delete(String(k).toLowerCase());
+  }
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      const currentKeys = await getDeletedLocationKeys();
+      for (const k of keys) {
+        if (k) currentKeys.delete(String(k).toLowerCase());
+      }
+      await adminClient
+        .from('site_settings')
+        .upsert({
+          key: 'deleted_locations',
+          value: { keys: Array.from(currentKeys) },
+          updated_at: new Date().toISOString(),
+        });
+    } catch (err) {
+      console.warn('Failed to unmark deleted location key:', err);
+    }
+  }
+}
+
+export async function getStoreLocations(options?: { onlyVisible?: boolean }): Promise<StoreLocation[]> {
+  const adminClient = createAdminClient();
+  let supabaseLocations: StoreLocation[] = [];
+
+  if (adminClient) {
+    try {
+      const { data, error } = await adminClient
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'store_locations')
+        .single();
+      if (!error && data?.value && Array.isArray((data.value as { locations?: StoreLocation[] }).locations)) {
+        supabaseLocations = (data.value as { locations: StoreLocation[] }).locations;
+      }
+    } catch (err) {
+      console.warn('Supabase store_locations settings error:', err);
+    }
+  }
+
+  const deletedKeys = await getDeletedLocationKeys();
+
+  // Combine: presets + saved Supabase locations + memory store
+  const locationMap = new Map<string, StoreLocation>();
+
+  // 1. Initial presets
+  for (const loc of initialStoreLocations) {
+    locationMap.set(loc.id, { ...loc });
+  }
+
+  // 2. Supabase persisted locations (supersedes presets)
+  for (const loc of supabaseLocations) {
+    locationMap.set(loc.id, { ...(locationMap.get(loc.id) || {}), ...loc });
+  }
+
+  // 3. Memory store
+  for (const loc of locationsStore) {
+    if (locationMap.has(loc.id)) {
+      locationMap.set(loc.id, { ...locationMap.get(loc.id)!, ...loc });
+    } else {
+      locationMap.set(loc.id, { ...loc });
+    }
+  }
+
+  // Filter out deleted locations
+  let list = Array.from(locationMap.values()).filter(loc => {
+    return !deletedKeys.has(loc.id.toLowerCase());
+  });
+
+  // Filter visibility if required
+  if (options?.onlyVisible) {
+    list = list.filter(loc => loc.is_visible !== false);
+  }
+
+  // Sort by display_order ascending
+  return list.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+}
+
+export async function getStoreLocationById(id: string): Promise<StoreLocation | null> {
+  const all = await getStoreLocations();
+  return all.find(l => l.id === id) || null;
+}
+
+export async function saveStoreLocation(location: Partial<StoreLocation>): Promise<StoreLocation> {
+  const adminClient = createAdminClient();
+  const currentLocations = await getStoreLocations();
+  const targetId = location.id || `loc-${Date.now()}`;
+
+  // Unmark from deleted list if re-saving
+  await unmarkLocationAsDeleted([targetId]);
+
+  const isPrimary = location.is_primary === true;
+  const existingIdx = currentLocations.findIndex(l => l.id === targetId);
+  const baseOrder = existingIdx !== -1 ? (currentLocations[existingIdx].display_order ?? (existingIdx + 1)) : currentLocations.length + 1;
+
+  const finalLocation: StoreLocation = {
+    id: targetId,
+    name: location.name || 'New Location',
+    branch_label: location.branch_label || 'Showroom & Branch',
+    address: location.address || '',
+    phone: location.phone || '',
+    whatsapp: location.whatsapp || '',
+    email: location.email || '',
+    timings: location.timings || 'Mon - Sat: 9:00 AM - 8:00 PM',
+    description: location.description || '',
+    map_embed_url: location.map_embed_url || '',
+    map_directions_url: location.map_directions_url || '',
+    latitude: location.latitude,
+    longitude: location.longitude,
+    is_primary: isPrimary,
+    is_visible: location.is_visible !== false,
+    display_order: location.display_order ?? baseOrder,
+    created_at: existingIdx !== -1 ? currentLocations[existingIdx].created_at : new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  // If this location is primary, unset is_primary on all other locations
+  let updatedList = currentLocations.map(l => {
+    if (l.id === targetId) return finalLocation;
+    if (isPrimary && l.is_primary) return { ...l, is_primary: false };
+    return l;
+  });
+
+  if (existingIdx === -1) {
+    if (isPrimary) {
+      updatedList = updatedList.map(l => ({ ...l, is_primary: false }));
+    }
+    updatedList.push(finalLocation);
+  }
+
+  // Update in-memory store
+  locationsStore = updatedList;
+
+  // Persist to Supabase site_settings under 'store_locations'
+  if (adminClient) {
+    try {
+      await adminClient
+        .from('site_settings')
+        .upsert({
+          key: 'store_locations',
+          value: { locations: updatedList },
+          updated_at: new Date().toISOString(),
+        });
+    } catch (err) {
+      console.warn('Failed to persist store_locations in site_settings:', err);
+    }
+  }
+
+  return finalLocation;
+}
+
+export async function deleteStoreLocation(id: string): Promise<boolean> {
+  const adminClient = createAdminClient();
+
+  // 1. Mark in persistent deleted list immediately
+  await markLocationAsDeleted([id]);
+
+  // 2. Remove from locations list
+  const currentLocations = await getStoreLocations();
+  const updatedList = currentLocations.filter(l => l.id !== id);
+  locationsStore = updatedList;
+
+  // 3. Persist to Supabase site_settings
+  if (adminClient) {
+    try {
+      await adminClient
+        .from('site_settings')
+        .upsert({
+          key: 'store_locations',
+          value: { locations: updatedList },
+          updated_at: new Date().toISOString(),
+        });
+    } catch (err) {
+      console.warn('Failed to update store_locations after delete:', err);
+    }
+  }
+
+  return true;
+}
+
+export async function reorderStoreLocations(orderedIds: string[]): Promise<boolean> {
+  const currentLocations = await getStoreLocations();
+  const updatedList = currentLocations.map(loc => {
+    const newIndex = orderedIds.indexOf(loc.id);
+    if (newIndex !== -1) {
+      return { ...loc, display_order: newIndex + 1 };
+    }
+    return loc;
+  });
+
+  updatedList.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+  locationsStore = updatedList;
+
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      await adminClient
+        .from('site_settings')
+        .upsert({
+          key: 'store_locations',
+          value: { locations: updatedList },
+          updated_at: new Date().toISOString(),
+        });
+    } catch (err) {
+      console.warn('Failed to save reordered store_locations:', err);
+    }
+  }
+
+  return true;
 }

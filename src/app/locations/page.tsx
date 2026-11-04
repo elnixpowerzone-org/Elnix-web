@@ -1,27 +1,30 @@
 import React from 'react';
+import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import LocationSection from '@/components/home/LocationSection';
+import LocationCard from '@/components/contact/LocationCard';
 import CtaBanner from '@/components/home/CtaBanner';
+import { getStoreLocations } from '@/lib/store';
 import { 
-  MapPin, 
   Car, 
   Truck, 
   Sparkles, 
-  Clock, 
-  Phone, 
-  Mail, 
-  Navigation, 
-  CheckCircle2, 
-  ShieldCheck 
+  ShieldCheck, 
+  ArrowRight,
+  MapPin
 } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export const metadata = {
-  title: 'Our Locations | ELNIX POWERZONE Showroom',
-  description: 'Visit the Elnix Powerzone showroom at Elnix Tower, Eruvely, Chottanikkara, Ernakulam. Hardware, battery, electrical, plumbing & sanitary supplies.',
+  title: 'Our Locations | ELNIX POWERZONE Showrooms & Distribution Desks',
+  description: 'Visit the Elnix Powerzone showrooms and distribution points in Chottanikkara and Ernakulam. Hardware, battery, electrical, plumbing & sanitary supplies.',
 };
 
-export default function LocationsPage() {
+export default async function LocationsPage() {
+  const locations = await getStoreLocations({ onlyVisible: true });
+
   const amenities = [
     {
       title: 'Spacious Customer Parking',
@@ -64,29 +67,53 @@ export default function LocationsPage() {
   ];
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-slate-50">
       <Navbar />
       <main className="flex-1">
         {/* Header */}
-        <section className="bg-[#0b1a30] text-white py-16 lg:py-24 relative overflow-hidden">
+        <section className="bg-[#0b1a30] text-white py-16 lg:py-20 relative overflow-hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-4 relative z-10">
             <span className="text-xs font-black tracking-widest text-sky-400 uppercase block">
-              FLAGSHIP SHOWROOM & WAREHOUSE
+              SHOWROOM & DISTRIBUTION NETWORK
             </span>
             <h1 className="text-4xl sm:text-5xl font-black tracking-tight">
-              Visit Our Store in <span className="text-sky-400">Chottanikkara</span>
+              Our Locations Across <span className="text-sky-400">Kerala</span>
             </h1>
             <p className="text-slate-300 max-w-2xl mx-auto text-sm sm:text-base leading-relaxed">
-              Experience the vast selection of electricals, batteries, plumbing pipes, and luxury sanitaryware in person at Elnix Tower, Eruvely.
+              Experience the vast selection of electricals, batteries, plumbing pipes, and luxury sanitaryware in person at our authorized showrooms and contractor desks.
             </p>
+            <div className="pt-2">
+              <Link
+                href="/contact"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md"
+              >
+                <span>Visit Main Contact & Enquiry Page</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
         </section>
 
-        {/* Location Section */}
-        <LocationSection />
+        {/* Dynamic Multi-Location Cards Grid */}
+        <section className="py-16 sm:py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mb-10 text-center space-y-1">
+            <span className="text-xs font-black tracking-widest text-sky-600 uppercase block">
+              AUTHORIZED CENTERS
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              Select a Showroom or Logistics Hub
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {locations.map((loc) => (
+              <LocationCard key={loc.id} location={loc} />
+            ))}
+          </div>
+        </section>
 
         {/* Showroom Amenities */}
-        <section className="py-20 bg-slate-50 border-y border-slate-200/60">
+        <section className="py-20 bg-white border-y border-slate-200/60">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-2xl mx-auto mb-14 space-y-2">
               <span className="text-xs font-black tracking-widest text-sky-600 uppercase block">
@@ -106,7 +133,7 @@ export default function LocationsPage() {
                 return (
                   <div
                     key={i}
-                    className="p-6 bg-white rounded-2xl border border-slate-200/80 shadow-2xs hover:shadow-lg transition-all"
+                    className="p-6 bg-slate-50/70 rounded-2xl border border-slate-200/80 shadow-2xs hover:shadow-lg transition-all"
                   >
                     <div className="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center mb-5">
                       <Icon className="w-6 h-6" />
@@ -125,14 +152,14 @@ export default function LocationsPage() {
         </section>
 
         {/* Driving Directions Guide */}
-        <section className="py-20 bg-white">
+        <section className="py-20 bg-slate-50">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12 space-y-2">
               <span className="text-xs font-black tracking-widest text-sky-600 uppercase block">
                 HOW TO REACH US
               </span>
               <h2 className="text-3xl font-black text-slate-900 tracking-tight">
-                Driving Directions
+                Driving Directions to Flagship Center
               </h2>
             </div>
 
@@ -140,7 +167,7 @@ export default function LocationsPage() {
               {travelGuides.map((guide, idx) => (
                 <div
                   key={idx}
-                  className="p-6 rounded-2xl bg-slate-50 border border-slate-200/80 hover:border-sky-300 transition-colors flex flex-col justify-between"
+                  className="p-6 rounded-2xl bg-white border border-slate-200/80 hover:border-sky-300 transition-colors flex flex-col justify-between shadow-2xs"
                 >
                   <div>
                     <span className="text-xs font-bold text-sky-600 uppercase tracking-wider block">
@@ -158,15 +185,13 @@ export default function LocationsPage() {
             </div>
 
             <div className="mt-10 text-center">
-              <a
-                href="https://maps.google.com/?q=Chottanikkara+Ernakulam+Kerala"
-                target="_blank"
-                rel="noreferrer"
+              <Link
+                href="/contact"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#0b1a30] hover:bg-sky-600 text-white font-bold text-xs uppercase tracking-wider transition-colors"
               >
-                <Navigation className="w-4 h-4 text-sky-400" />
-                <span>Open Google Navigation</span>
-              </a>
+                <MapPin className="w-4 h-4 text-sky-400" />
+                <span>View Full Contact Page & Enquiry Form</span>
+              </Link>
             </div>
           </div>
         </section>
@@ -177,4 +202,3 @@ export default function LocationsPage() {
     </div>
   );
 }
-

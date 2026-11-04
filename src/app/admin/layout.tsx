@@ -11,6 +11,7 @@ import {
   Tags, 
   Award, 
   Inbox, 
+  MapPin, 
   Settings, 
   LogOut, 
   ExternalLink, 
@@ -60,6 +61,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
     { label: 'Categories', href: '/admin/categories', icon: Tags },
     { label: 'Brands', href: '/admin/brands', icon: Award },
     { label: 'Customer Enquiries', href: '/admin/enquiries', icon: Inbox },
+    { label: 'Store Locations', href: '/admin/locations', icon: MapPin },
     { label: 'Store Settings', href: '/admin/settings', icon: Settings },
   ];
 
