@@ -22,11 +22,15 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const id = searchParams.get('id');
-  if (!id) {
-    return NextResponse.json({ success: false, error: 'Brand ID required' }, { status: 400 });
+  const id = searchParams.get('id') || '';
+  const slug = searchParams.get('slug') || '';
+  const name = searchParams.get('name') || '';
+
+  if (!id && !slug) {
+    return NextResponse.json({ success: false, error: 'Brand ID or Slug required' }, { status: 400 });
   }
-  const success = await deleteBrand(id);
+
+  const success = await deleteBrand(id || slug, { slug, name });
   revalidatePath('/');
   revalidatePath('/products');
   return NextResponse.json({ success });

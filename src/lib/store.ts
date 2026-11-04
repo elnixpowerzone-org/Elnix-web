@@ -97,7 +97,6 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
 export async function saveProduct(product: Partial<Product>): Promise<Product> {
   const adminClient = createAdminClient();
 
-  // If Supabase is connected
   if (adminClient) {
     try {
       if (product.id && !product.id.startsWith('prod-')) {
@@ -391,6 +390,11 @@ async function saveHomepageCategoryMeta(identifier: string, meta: CategoryMetaRe
   if (adminClient) {
     try {
       const currentMeta = await getHomepageCategoriesMeta();
+      const norm = identifier.toLowerCase();
+      currentMeta[norm] = {
+        ...currentMeta[norm],
+        ...meta,
+      };
       currentMeta[identifier] = {
         ...currentMeta[identifier],
         ...meta,
@@ -479,11 +483,21 @@ export async function getCategories(): Promise<Category[]> {
   }
 
   // Enrich with metadata (icon, visibility, custom_url, product count)
+  // CRITICAL: meta.is_visible (saved in Supabase site_settings) takes precedence over defaults!
   const enriched = filteredCategories.map(cat => {
-    const meta = metaMap[cat.id] || metaMap[cat.slug] || {};
-    const icon = cat.icon || meta.icon || autoInferCategoryIcon(cat.slug || cat.name);
-    const is_visible = cat.is_visible !== undefined ? cat.is_visible : (meta.is_visible !== undefined ? meta.is_visible : true);
-    const custom_url = cat.custom_url || meta.custom_url || '';
+    const meta =
+      (cat.id && metaMap[cat.id.toLowerCase()]) ||
+      (cat.id && metaMap[cat.id]) ||
+      (cat.slug && metaMap[cat.slug.toLowerCase()]) ||
+      (cat.slug && metaMap[cat.slug]) ||
+      (cat.name && metaMap[cat.name.toLowerCase()]) ||
+      {};
+
+    const icon = meta.icon || cat.icon || autoInferCategoryIcon(cat.slug || cat.name);
+    const is_visible = meta.is_visible !== undefined
+      ? meta.is_visible
+      : (cat.is_visible !== undefined ? cat.is_visible : true);
+    const custom_url = meta.custom_url !== undefined ? meta.custom_url : (cat.custom_url || '');
 
     return {
       ...cat,
@@ -595,14 +609,16 @@ export async function saveCategory(category: Partial<Category>): Promise<Categor
     icon: category.icon || autoInferCategoryIcon(savedCategory.name || savedCategory.slug),
   });
 
-  // Save metadata to site_settings
-  const metaId = savedCategory.id || savedCategory.slug;
-  if (metaId) {
-    await saveHomepageCategoryMeta(metaId, {
-      is_visible: category.is_visible ?? true,
-      custom_url: category.custom_url || '',
-      icon: category.icon || autoInferCategoryIcon(savedCategory.slug || savedCategory.name),
-    });
+  // Save metadata to site_settings under all identifiers (id, slug, targetSlug)
+  const metaUpdates = {
+    is_visible: category.is_visible !== undefined ? category.is_visible : true,
+    custom_url: category.custom_url || '',
+    icon: category.icon || autoInferCategoryIcon(savedCategory.slug || savedCategory.name),
+  };
+
+  const idKeys = Array.from(new Set([savedCategory.id, savedCategory.slug, targetSlug].filter(Boolean)));
+  for (const k of idKeys) {
+    await saveHomepageCategoryMeta(k, metaUpdates);
   }
 
   return {
@@ -650,10 +666,212 @@ export async function deleteCategory(id: string, extra?: { slug?: string; name?:
   return true;
 }
 
+// ---------------- BRAND HELPERS & PERSISTENCE ----------------
+const localDeletedBrandKeys = new Set<string>();
+
+async function getDeletedBrandKeys(): Promise<Set<string>> {
+  const result = new Set<string>(localDeletedBrandKeys);
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      const { data, error } = await adminClient
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'deleted_brands')
+        .single();
+      if (!error && data?.value && Array.isArray((data.value as { keys?: string[] }).keys)) {
+        for (const k of (data.value as { keys: string[] }).keys) {
+          result.add(String(k).toLowerCase());
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }
+  return result;
+}
+
+async function markBrandAsDeleted(keys: string[]) {
+  for (const k of keys) {
+    if (k) localDeletedBrandKeys.add(String(k).toLowerCase());
+  }
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      const currentKeys = await getDeletedBrandKeys();
+      for (const k of keys) {
+        if (k) currentKeys.add(String(k).toLowerCase());
+      }
+      await adminClient
+        .from('site_settings')
+        .upsert({
+          key: 'deleted_brands',
+          value: { keys: Array.from(currentKeys) },
+          updated_at: new Date().toISOString(),
+        });
+    } catch (err) {
+      console.warn('Failed to persist deleted brand key:', err);
+    }
+  }
+}
+
+async function unmarkBrandAsDeleted(keys: string[]) {
+  for (const k of keys) {
+    if (k) localDeletedBrandKeys.delete(String(k).toLowerCase());
+  }
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      const currentKeys = await getDeletedBrandKeys();
+      for (const k of keys) {
+        if (k) currentKeys.delete(String(k).toLowerCase());
+      }
+      await adminClient
+        .from('site_settings')
+        .upsert({
+          key: 'deleted_brands',
+          value: { keys: Array.from(currentKeys) },
+          updated_at: new Date().toISOString(),
+        });
+    } catch (err) {
+      console.warn('Failed to unmark deleted brand key:', err);
+    }
+  }
+}
+
+async function getBrandOverrides(): Promise<Record<string, Partial<Brand>>> {
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      const { data, error } = await adminClient
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'brand_overrides')
+        .single();
+      if (!error && data?.value && typeof data.value === 'object') {
+        return (data.value as { overrides?: Record<string, Partial<Brand>> }).overrides || {};
+      }
+    } catch {
+      // Ignore
+    }
+  }
+  return {};
+}
+
+async function saveBrandOverride(identifiers: string[], updates: Partial<Brand>) {
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      const currentMap = await getBrandOverrides();
+      for (const id of identifiers) {
+        if (!id) continue;
+        const norm = id.toLowerCase();
+        currentMap[norm] = {
+          ...currentMap[norm],
+          ...updates,
+        };
+      }
+      await adminClient
+        .from('site_settings')
+        .upsert({
+          key: 'brand_overrides',
+          value: { overrides: currentMap },
+          updated_at: new Date().toISOString(),
+        });
+    } catch (err) {
+      console.warn('Failed to persist brand overrides to site_settings:', err);
+    }
+  }
+}
+
+async function removeBrandOverride(identifiers: string[]) {
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      const currentMap = await getBrandOverrides();
+      for (const id of identifiers) {
+        if (!id) continue;
+        delete currentMap[id.toLowerCase()];
+      }
+      await adminClient
+        .from('site_settings')
+        .upsert({
+          key: 'brand_overrides',
+          value: { overrides: currentMap },
+          updated_at: new Date().toISOString(),
+        });
+    } catch (err) {
+      console.warn('Failed to remove brand override:', err);
+    }
+  }
+}
+
+async function getCustomBrands(): Promise<Brand[]> {
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      const { data, error } = await adminClient
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'custom_brands')
+        .single();
+      if (!error && data?.value && Array.isArray((data.value as { brands?: Brand[] }).brands)) {
+        return (data.value as { brands: Brand[] }).brands;
+      }
+    } catch {
+      // Ignore
+    }
+  }
+  return [];
+}
+
+async function saveCustomBrandToSettings(brand: Brand) {
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      const list = await getCustomBrands();
+      const idx = list.findIndex(b => b.id === brand.id || b.slug === brand.slug);
+      if (idx !== -1) {
+        list[idx] = { ...list[idx], ...brand };
+      } else {
+        list.push(brand);
+      }
+      await adminClient
+        .from('site_settings')
+        .upsert({
+          key: 'custom_brands',
+          value: { brands: list },
+          updated_at: new Date().toISOString(),
+        });
+    } catch (err) {
+      console.warn('Failed to persist custom brand to site_settings:', err);
+    }
+  }
+}
+
+async function removeCustomBrandFromSettings(idOrSlug: string) {
+  const adminClient = createAdminClient();
+  if (adminClient) {
+    try {
+      const list = await getCustomBrands();
+      const filtered = list.filter(b => b.id !== idOrSlug && b.slug !== idOrSlug);
+      await adminClient
+        .from('site_settings')
+        .upsert({
+          key: 'custom_brands',
+          value: { brands: filtered },
+          updated_at: new Date().toISOString(),
+        });
+    } catch (err) {
+      console.warn('Failed to remove custom brand from site_settings:', err);
+    }
+  }
+}
+
 // ---------------- BRANDS ----------------
 export async function getBrands(): Promise<Brand[]> {
   const adminClient = createAdminClient();
-  let rawBrands: Brand[] = [];
+  let supabaseBrands: Brand[] = [];
 
   if (adminClient) {
     try {
@@ -662,110 +880,209 @@ export async function getBrands(): Promise<Brand[]> {
         .select('*')
         .order('display_order', { ascending: true });
       if (!error && data) {
-        rawBrands = data as Brand[];
+        supabaseBrands = data as Brand[];
       }
     } catch (err) {
       console.warn('Supabase brands error:', err);
     }
   }
 
-  if (rawBrands.length === 0) {
-    rawBrands = [...brandsStore];
+  // Load deleted keys, custom brands, and persistent overrides from Supabase site_settings
+  const [deletedKeys, customBrands, overridesMap] = await Promise.all([
+    getDeletedBrandKeys(),
+    getCustomBrands(),
+    getBrandOverrides(),
+  ]);
+
+  const brandMap = new Map<string, Brand>();
+
+  // 1. Initial presets (provides presets like Amaron, Exide, Racold, etc.)
+  for (const b of initialBrands) {
+    brandMap.set(b.slug, { ...b });
   }
 
-  return rawBrands.map(b => ({
-    ...b,
-    is_channel_partner: b.is_channel_partner ?? true,
-    display_order: b.display_order ?? 0,
-  })).sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+  // 2. Supabase brands (overlays initial presets)
+  for (const b of supabaseBrands) {
+    const key = b.slug || b.id;
+    brandMap.set(key, { ...(brandMap.get(key) || {}), ...b });
+  }
+
+  // 3. Custom brands in site_settings
+  for (const b of customBrands) {
+    const key = b.slug || b.id;
+    brandMap.set(key, { ...(brandMap.get(key) || {}), ...b });
+  }
+
+  // 4. Memory store
+  for (const b of brandsStore) {
+    const key = b.slug || b.id;
+    if (brandMap.has(key)) {
+      brandMap.set(key, { ...brandMap.get(key)!, ...b });
+    } else {
+      brandMap.set(key, { ...b });
+    }
+  }
+
+  // Filter out ANY brand that has been marked as deleted
+  const activeBrands: Brand[] = [];
+  for (const b of Array.from(brandMap.values())) {
+    const isDeleted =
+      (b.id && deletedKeys.has(b.id.toLowerCase())) ||
+      (b.slug && deletedKeys.has(b.slug.toLowerCase())) ||
+      (b.name && deletedKeys.has(b.name.toLowerCase()));
+
+    if (!isDeleted) {
+      activeBrands.push(b);
+    }
+  }
+
+  // Enrich with overrides from site_settings (ensures newly saved logos, visibility toggles & ordering win)
+  const enriched = activeBrands.map(b => {
+    const override =
+      (b.id && overridesMap[b.id.toLowerCase()]) ||
+      (b.slug && overridesMap[b.slug.toLowerCase()]) ||
+      (b.name && overridesMap[b.name.toLowerCase()]) ||
+      {};
+
+    return {
+      ...b,
+      ...override,
+      is_channel_partner: override.is_channel_partner !== undefined
+        ? override.is_channel_partner
+        : (b.is_channel_partner !== undefined ? b.is_channel_partner : true),
+      display_order: override.display_order ?? b.display_order ?? 0,
+      logo_url: override.logo_url || b.logo_url || '',
+      public_id: override.public_id !== undefined ? override.public_id : b.public_id,
+      website: override.website !== undefined ? override.website : (b.website || ''),
+    };
+  });
+
+  return enriched.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
 }
 
 export async function saveBrand(brand: Partial<Brand>): Promise<Brand> {
   const adminClient = createAdminClient();
   let savedBrand: Brand | null = null;
+  const targetSlug = brand.slug || `${(brand.name || 'brand').toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
 
+  // Unmark from deleted list
+  await unmarkBrandAsDeleted([brand.id || '', targetSlug, brand.name || '']);
+
+  // Attempt Supabase direct brands table update/insert
   if (adminClient) {
     try {
-      if (brand.id && !brand.id.startsWith('brand-')) {
+      const isUUID = !!(brand.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(brand.id));
+      if (isUUID) {
         const { data, error } = await adminClient
           .from('brands')
           .update({
             name: brand.name,
-            slug: brand.slug,
+            slug: targetSlug,
             logo_url: brand.logo_url,
             public_id: brand.public_id,
             website: brand.website,
-            is_channel_partner: brand.is_channel_partner ?? true,
+            is_channel_partner: brand.is_channel_partner !== false,
             display_order: brand.display_order,
           })
-          .eq('id', brand.id)
+          .eq('id', brand.id!)
           .select()
           .single();
         if (!error && data) savedBrand = data as Brand;
       } else {
-        const generatedSlug = brand.slug || `${(brand.name || 'brand').toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now().toString().slice(-4)}`;
         const { data, error } = await adminClient
           .from('brands')
-          .insert({
+          .upsert({
             name: brand.name || 'New Brand',
-            slug: generatedSlug,
-            logo_url: brand.logo_url || 'https://images.unsplash.com/photo-1619725002198-6a689b72f41d?auto=format&fit=crop&w=300&q=80',
+            slug: targetSlug,
+            logo_url: brand.logo_url || '',
             public_id: brand.public_id || null,
             website: brand.website || null,
-            is_channel_partner: brand.is_channel_partner ?? true,
+            is_channel_partner: brand.is_channel_partner !== false,
             display_order: brand.display_order ?? (brandsStore.length + 1),
-          })
+          }, { onConflict: 'slug' })
           .select()
           .single();
         if (!error && data) savedBrand = data as Brand;
       }
     } catch (err) {
-      console.warn('Supabase brand save error:', err);
+      console.warn('Supabase brands table update attempt:', err);
     }
   }
 
-  if (brand.id) {
-    const idx = brandsStore.findIndex(b => b.id === brand.id);
-    if (idx !== -1) {
-      brandsStore[idx] = { ...brandsStore[idx], ...brand };
-      return savedBrand || brandsStore[idx];
-    }
+  // Construct guaranteed valid brand object
+  const finalBrand: Brand = {
+    id: savedBrand?.id || brand.id || `brand-${targetSlug}`,
+    name: brand.name || savedBrand?.name || 'New Brand',
+    slug: targetSlug,
+    logo_url: brand.logo_url !== undefined ? brand.logo_url : (savedBrand?.logo_url || ''),
+    public_id: brand.public_id !== undefined ? brand.public_id : savedBrand?.public_id,
+    website: brand.website !== undefined ? brand.website : savedBrand?.website,
+    is_channel_partner: brand.is_channel_partner !== false,
+    display_order: brand.display_order ?? savedBrand?.display_order ?? (brandsStore.length + 1),
+  };
+
+  // Update in-memory store
+  const existingIdx = brandsStore.findIndex(b => b.id === finalBrand.id || b.slug === finalBrand.slug);
+  if (existingIdx !== -1) {
+    brandsStore[existingIdx] = { ...brandsStore[existingIdx], ...finalBrand };
+  } else {
+    brandsStore.push(finalBrand);
   }
 
-  if (!savedBrand) {
-    const newBrand: Brand = {
-      id: brand.id || `brand-${Date.now()}`,
-      name: brand.name || 'New Brand',
-      slug: brand.slug || `${(brand.name || 'brand').toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
-      logo_url: brand.logo_url || 'https://images.unsplash.com/photo-1619725002198-6a689b72f41d?auto=format&fit=crop&w=300&q=80',
-      public_id: brand.public_id,
-      website: brand.website,
-      is_channel_partner: brand.is_channel_partner ?? true,
-      display_order: brand.display_order ?? (brandsStore.length + 1),
-    };
-    brandsStore.push(newBrand);
-    return newBrand;
-  }
+  // ALWAYS persist to Supabase site_settings (custom_brands & brand_overrides)
+  // This guarantees persistence even if the publishable key encounters RLS restrictions on the brands table!
+  const identifiers = Array.from(new Set([finalBrand.id, finalBrand.slug, targetSlug, finalBrand.name].filter(Boolean) as string[]));
+  await Promise.all([
+    saveCustomBrandToSettings(finalBrand),
+    saveBrandOverride(identifiers, {
+      name: finalBrand.name,
+      slug: finalBrand.slug,
+      logo_url: finalBrand.logo_url,
+      public_id: finalBrand.public_id,
+      website: finalBrand.website,
+      is_channel_partner: finalBrand.is_channel_partner,
+      display_order: finalBrand.display_order,
+    }),
+  ]);
 
-  return savedBrand;
+  return finalBrand;
 }
 
-export async function deleteBrand(id: string): Promise<boolean> {
+export async function deleteBrand(id: string, extra?: { slug?: string; name?: string }): Promise<boolean> {
   const adminClient = createAdminClient();
-  if (adminClient && !id.startsWith('brand-')) {
+  const slug = extra?.slug || '';
+  const name = extra?.name || '';
+  const keys = Array.from(new Set([id, slug, name].filter(Boolean) as string[]));
+
+  // 1. Mark in persistent deleted list in site_settings immediately
+  await markBrandAsDeleted(keys);
+
+  // 2. Remove from custom_brands in site_settings
+  await removeCustomBrandFromSettings(id);
+  if (slug) await removeCustomBrandFromSettings(slug);
+
+  // 3. Remove from brand_overrides in site_settings
+  await removeBrandOverride(keys);
+
+  // 4. Try deleting from Supabase brands table
+  if (adminClient) {
     try {
-      const { error } = await adminClient.from('brands').delete().eq('id', id);
-      if (!error) return true;
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      if (isUUID) {
+        await adminClient.from('brands').delete().eq('id', id);
+      }
+      if (slug) {
+        await adminClient.from('brands').delete().eq('slug', slug);
+      }
     } catch (err) {
-      console.warn('Supabase brand delete error:', err);
+      console.warn('Supabase brand delete attempt:', err);
     }
   }
-  const idx = brandsStore.findIndex(b => b.id === id);
-  if (idx !== -1) {
-    brandsStore.splice(idx, 1);
-    return true;
-  }
-  return false;
+
+  // 5. Remove from in-memory fallback store
+  brandsStore = brandsStore.filter(b => b.id !== id && b.slug !== id && (!slug || b.slug !== slug));
+
+  return true;
 }
 
 // ---------------- ENQUIRIES ----------------

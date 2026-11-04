@@ -6,14 +6,15 @@ import { Brand } from '@/types';
 import ImageUploader from '@/components/ImageUploader';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import BrandLogo from '@/components/home/BrandLogo';
+import { AUTHENTIC_BRAND_SVGS } from '@/lib/brandLogos';
 import { toast } from 'sonner';
 
 const BRAND_PRESETS = [
-  { name: 'Amaron', slug: 'amaron', website: 'https://www.amaron.in', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Amaron_Logo.svg/320px-Amaron_Logo.svg.png' },
-  { name: 'Exide', slug: 'exide', website: 'https://www.exideindustries.com', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Exide_logo.svg/320px-Exide_logo.svg.png' },
-  { name: 'Luminous', slug: 'luminous', website: 'https://www.luminousindia.com', logo_url: 'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?auto=format&fit=crop&w=300&q=80' },
-  { name: 'V-Guard', slug: 'v-guard', website: 'https://www.vguard.in', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/V-Guard_Industries_Logo.svg/320px-V-Guard_Industries_Logo.svg.png' },
-  { name: 'Racold', slug: 'racold', website: 'https://www.racold.com', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Racold_Logo.svg/320px-Racold_Logo.svg.png' },
+  { name: 'Amaron', slug: 'amaron', website: 'https://www.amaron.in', logo_url: AUTHENTIC_BRAND_SVGS.amaron },
+  { name: 'Exide', slug: 'exide', website: 'https://www.exideindustries.com', logo_url: AUTHENTIC_BRAND_SVGS.exide },
+  { name: 'Luminous', slug: 'luminous', website: 'https://www.luminousindia.com', logo_url: AUTHENTIC_BRAND_SVGS.luminous },
+  { name: 'V-Guard', slug: 'v-guard', website: 'https://www.vguard.in', logo_url: AUTHENTIC_BRAND_SVGS['v-guard'] },
+  { name: 'Racold', slug: 'racold', website: 'https://www.racold.com', logo_url: AUTHENTIC_BRAND_SVGS.racold },
 ];
 
 export default function AdminBrandsPage() {
@@ -159,7 +160,12 @@ export default function AdminBrandsPage() {
         });
       }
 
-      const res = await fetch(`/api/brands?id=${brandToDelete.id}`, {
+      const params = new URLSearchParams();
+      if (brandToDelete.id) params.set('id', brandToDelete.id);
+      if (brandToDelete.slug) params.set('slug', brandToDelete.slug);
+      if (brandToDelete.name) params.set('name', brandToDelete.name);
+
+      const res = await fetch(`/api/brands?${params.toString()}`, {
         method: 'DELETE',
       });
       const data = await res.json();
@@ -239,7 +245,7 @@ export default function AdminBrandsPage() {
 
             return (
               <div
-                key={b.id}
+                key={b.id || b.slug}
                 className={`bg-white rounded-2xl border transition-all p-4 flex flex-col justify-between group shadow-2xs hover:shadow-md ${
                   isVisible ? 'border-slate-200/90' : 'border-dashed border-slate-300 opacity-70'
                 }`}
@@ -335,7 +341,7 @@ export default function AdminBrandsPage() {
 
             <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
               <ImageUploader
-                label="Brand Logo (Cloudinary or URL)"
+                label="Brand Logo (Cloudinary, SVG, or URL)"
                 value={editingBrand.logo_url}
                 publicId={editingBrand.public_id}
                 folder="elnix_brands"
@@ -343,7 +349,7 @@ export default function AdminBrandsPage() {
                   setEditingBrand({
                     ...editingBrand,
                     logo_url: url,
-                    public_id: publicId,
+                    public_id: publicId || '',
                   });
                 }}
               />
