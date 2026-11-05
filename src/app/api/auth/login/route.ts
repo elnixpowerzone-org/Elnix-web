@@ -56,6 +56,9 @@ export async function POST(req: NextRequest) {
             full_name: profile?.full_name || 'Elnix Administrator',
           };
 
+          // Sign admin token consistently using server-only secret
+          const token = signAdminToken(adminUser);
+
           // Do NOT return the raw bearer token in the JSON body (eliminates localStorage storage)
           const res = NextResponse.json({
             success: true,
@@ -63,7 +66,7 @@ export async function POST(req: NextRequest) {
           });
 
           // Set HttpOnly cookie with 30-minute expiration matching token lifetime
-          res.cookies.set('elnix_admin_token', data.session.access_token, {
+          res.cookies.set('elnix_admin_token', token, {
             path: '/',
             httpOnly: true,
             sameSite: 'lax',
@@ -80,7 +83,32 @@ export async function POST(req: NextRequest) {
 
     // 2. Emergency Admin Mechanism (Configured strictly via server-only environment variables)
     const emergencyEmail = process.env.ADMIN_EMERGENCY_EMAIL?.trim().toLowerCase();
-    const emergencyPassword = process.env.ADMIN_EMERGENCY_PASSWORD?.trim();
+    let emergencyPassword = process.env.ADMIN_EMERGENCY_PASSWORD?.trim();
+
+    // In local development, if .env.local contained an unquoted '#' in the password,
+    // dotenv may have truncated it as a comment. Read .env.local to recover the full intended password.
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const envFile = path.resolve(process.cwd(), '.env.local');
+        if (fs.existsSync(envFile)) {
+          const content = fs.readFileSync(envFile, 'utf8');
+          const m = content.match(/^ADMIN_EMERGENCY_PASSWORD\s*=\s*(.*)$/m);
+          if (m && m[1]) {
+            let val = m[1].trim();
+            if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+              val = val.slice(1, -1);
+            }
+            if (val && val.length >= 8) {
+              emergencyPassword = val;
+            }
+          }
+        }
+      } catch {
+        // fallback to process.env
+      }
+    }
 
     if (
       emergencyEmail &&
@@ -91,9 +119,16 @@ export async function POST(req: NextRequest) {
       const inputBuffer = Buffer.from(cleanPassword);
       const targetBuffer = Buffer.from(emergencyPassword);
 
-      const isValidPassword =
+      let isValidPassword =
         inputBuffer.length === targetBuffer.length &&
         crypto.timingSafeEqual(inputBuffer, targetBuffer);
+
+      if (!isValidPassword && process.env.ADMIN_EMERGENCY_PASSWORD) {
+        const envBuf = Buffer.from(process.env.ADMIN_EMERGENCY_PASSWORD.trim());
+        if (inputBuffer.length === envBuf.length && crypto.timingSafeEqual(inputBuffer, envBuf)) {
+          isValidPassword = true;
+        }
+      }
 
       if (isValidPassword) {
         const adminUser: AdminAuthUser = {
