@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/client';
 
@@ -267,14 +268,48 @@ export async function verifyAdminRequest(req: NextRequest): Promise<AdminAuthRes
 
     // Role check: ONLY trusted database role or trusted app_metadata
     // Never trust user-editable user_metadata or hardcoded email addresses
+    let profileData: { role?: string; full_name?: string } | null = null;
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('role, full_name')
       .eq('id', user.id)
       .maybeSingle();
 
+    if (profile) {
+      profileData = profile;
+    } else {
+      // If server admin client lacks service_role bypass privileges on profiles table under RLS,
+      // query profiles using an authenticated client bearing the user's verified token
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey =
+        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (supabaseUrl && supabaseKey) {
+        try {
+          const authClient = createSupabaseClient(supabaseUrl, supabaseKey, {
+            global: {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          });
+          const { data: userProfile } = await authClient
+            .from('profiles')
+            .select('role, full_name')
+            .eq('id', user.id)
+            .maybeSingle();
+          if (userProfile) {
+            profileData = userProfile;
+          }
+        } catch {
+          // ignore error
+        }
+      }
+    }
+
     const isVerifiedAdmin =
-      profile?.role === 'admin' ||
+      profileData?.role === 'admin' ||
       user.app_metadata?.role === 'admin';
 
     if (isVerifiedAdmin) {
@@ -284,7 +319,7 @@ export async function verifyAdminRequest(req: NextRequest): Promise<AdminAuthRes
           id: user.id,
           email: user.email || '',
           role: 'admin',
-          full_name: profile?.full_name || 'Elnix Administrator',
+          full_name: profileData?.full_name || 'Elnix Administrator',
         },
       };
     }

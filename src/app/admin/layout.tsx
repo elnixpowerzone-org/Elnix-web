@@ -46,11 +46,14 @@ function AdminShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Guard: If not admin, redirect to login
-  if (!isAdmin) {
-    if (typeof window !== 'undefined') {
+  // Guard: If not admin, redirect to login via useEffect to prevent router setState during render
+  React.useEffect(() => {
+    if (!isLoading && !isAdmin && pathname !== '/admin/login') {
       router.push('/admin/login');
     }
+  }, [isLoading, isAdmin, pathname, router]);
+
+  if (!isAdmin) {
     return null;
   }
 

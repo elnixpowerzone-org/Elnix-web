@@ -46,7 +46,7 @@ export default function AdminLocationsPage() {
   const fetchLocations = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/locations', { cache: 'no-store' });
+      const res = await fetch('/api/locations', { cache: 'no-store', credentials: 'include' });
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
         setLocations(data.data);
@@ -99,6 +99,7 @@ export default function AdminLocationsPage() {
       const res = await fetch('/api/locations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           ...loc,
           is_visible: newStatus,
@@ -127,6 +128,7 @@ export default function AdminLocationsPage() {
       const res = await fetch('/api/locations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           ...loc,
           is_primary: true,
@@ -163,6 +165,7 @@ export default function AdminLocationsPage() {
       const res = await fetch('/api/locations', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ action: 'reorder', orderedIds }),
       });
       if (!res.ok) throw new Error('Failed to update order');
@@ -230,6 +233,7 @@ export default function AdminLocationsPage() {
       const res = await fetch('/api/locations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(payload),
       });
 
@@ -260,6 +264,7 @@ export default function AdminLocationsPage() {
     try {
       const res = await fetch(`/api/locations?id=${encodeURIComponent(locationToDelete.id)}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
       const data = await res.json();
 

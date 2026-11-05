@@ -39,7 +39,29 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
       try {
         // 1. Verify session with server-side auth endpoint using HttpOnly cookie
-        const sessionRes = await fetch('/api/auth/session', { cache: 'no-store' });
+        let sessionRes = await fetch('/api/auth/session', {
+          cache: 'no-store',
+          credentials: 'include',
+        });
+
+        // 2. If cookie was missing/expired, check if Supabase client in browser has an active session
+        // and securely validate it server-side via Bearer header
+        if (!sessionRes.ok) {
+          const supabase = createClient();
+          if (supabase) {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.access_token) {
+              sessionRes = await fetch('/api/auth/session', {
+                cache: 'no-store',
+                credentials: 'include',
+                headers: {
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+              });
+            }
+          }
+        }
+
         if (sessionRes.ok) {
           const sessionData = await sessionRes.json();
           if (sessionData.authenticated && sessionData.user) {
@@ -50,41 +72,13 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        // 2. Check Supabase client session if available
-        const supabase = createClient();
-        if (supabase) {
-          const { data: { user: authUser } } = await supabase.auth.getUser();
-          if (authUser) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('role, full_name')
-              .eq('id', authUser.id)
-              .maybeSingle();
-
-            const isVerifiedAdmin =
-              profile?.role === 'admin' ||
-              authUser.app_metadata?.role === 'admin';
-
-            if (isVerifiedAdmin) {
-              const adminUser: UserProfile = {
-                id: authUser.id,
-                email: authUser.email || '',
-                full_name: profile?.full_name || 'Admin',
-                role: 'admin',
-              };
-              setUser(adminUser);
-              localStorage.setItem('elnix_admin_session', JSON.stringify(adminUser));
-              setIsLoading(false);
-              return;
-            }
-          }
-        }
-
-        // If not authenticated, clean up display cache
+        // If not authenticated or non-admin, clean up display cache
         localStorage.removeItem('elnix_admin_session');
         setUser(null);
       } catch (err) {
         console.warn('Auth check error:', err);
+        localStorage.removeItem('elnix_admin_session');
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -101,6 +95,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, password: pass }),
       });
 
@@ -151,7 +146,10 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     try {
       // Call server logout to clear HttpOnly cookie
-      await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      }).catch(() => {});
 
       const supabase = createClient();
       if (supabase) {
