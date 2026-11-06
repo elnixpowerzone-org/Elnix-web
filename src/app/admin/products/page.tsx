@@ -76,7 +76,7 @@ export default function AdminProductsPage() {
       image_url: '',
       public_id: '',
       in_stock: true,
-      is_popular: true,
+      is_popular: false,
       is_featured: false,
     });
     setSpecs([
@@ -544,7 +544,7 @@ export default function AdminProductsPage() {
                     onChange={(e) => setEditingProduct({ ...editingProduct, is_popular: e.target.checked })}
                     className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
                   />
-                  <span>Show in Popular Products</span>
+                  <span>Show in Popular Products (Homepage Top 4)</span>
                 </label>
 
                 <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-slate-800">
