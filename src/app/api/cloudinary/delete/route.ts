@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import cloudinary, { isCloudinaryConfigured } from '@/lib/cloudinary';
+import { requireAdmin } from '@/lib/auth/admin';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
+  const authError = await requireAdmin(req);
+  if (authError) return authError;
+
   try {
     const body = await req.json();
     const { public_id } = body;
@@ -36,4 +42,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

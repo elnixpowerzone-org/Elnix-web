@@ -41,3 +41,36 @@ html {
   background: #94a3b8;
 }
 
+/* Continuous Auto-Scrolling Brand Marquee */
+@keyframes brand-marquee-scroll {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.brand-marquee-track {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  animation: brand-marquee-scroll 35s linear infinite;
+}
+
+.brand-marquee-track:hover,
+.brand-marquee-track:focus-within {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-marquee-track {
+    animation: none !important;
+    transform: none !important;
+  }
+  .brand-marquee-container {
+    overflow-x: auto !important;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+}

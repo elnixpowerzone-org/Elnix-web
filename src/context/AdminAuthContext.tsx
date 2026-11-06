@@ -31,49 +31,54 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function checkAuth() {
       setIsLoading(true);
+
+      // Clean up any deprecated localStorage bearer tokens
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('elnix_admin_token');
+      }
+
       try {
-        // First check session storage for demo admin or restored session
-        const storedDemo = typeof window !== 'undefined' ? localStorage.getItem('elnix_admin_session') : null;
-        if (storedDemo) {
-          try {
-            const parsed = JSON.parse(storedDemo);
-            if (parsed && parsed.role === 'admin') {
-              setUser(parsed);
-              setIsLoading(false);
-              return;
-            }
-          } catch {
-            localStorage.removeItem('elnix_admin_session');
-          }
-        }
+        // 1. Verify session with server-side auth endpoint using HttpOnly cookie
+        let sessionRes = await fetch('/api/auth/session', {
+          cache: 'no-store',
+          credentials: 'include',
+        });
 
-        // Check Supabase if configured
-        const supabase = createClient();
-        if (supabase) {
-          const { data: { user: authUser } } = await supabase.auth.getUser();
-          if (authUser) {
-            // Check profiles table for role
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', authUser.id)
-              .single();
-
-            if (profile && profile.role === 'admin') {
-              const adminUser: UserProfile = {
-                id: authUser.id,
-                email: authUser.email || '',
-                full_name: profile.full_name || 'Admin',
-                role: 'admin',
-              };
-              setUser(adminUser);
-              setIsLoading(false);
-              return;
+        // 2. If cookie was missing/expired, check if Supabase client in browser has an active session
+        // and securely validate it server-side via Bearer header
+        if (!sessionRes.ok) {
+          const supabase = createClient();
+          if (supabase) {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.access_token) {
+              sessionRes = await fetch('/api/auth/session', {
+                cache: 'no-store',
+                credentials: 'include',
+                headers: {
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+              });
             }
           }
         }
+
+        if (sessionRes.ok) {
+          const sessionData = await sessionRes.json();
+          if (sessionData.authenticated && sessionData.user) {
+            setUser(sessionData.user);
+            localStorage.setItem('elnix_admin_session', JSON.stringify(sessionData.user));
+            setIsLoading(false);
+            return;
+          }
+        }
+
+        // If not authenticated or non-admin, clean up display cache
+        localStorage.removeItem('elnix_admin_session');
+        setUser(null);
       } catch (err) {
         console.warn('Auth check error:', err);
+        localStorage.removeItem('elnix_admin_session');
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -86,63 +91,30 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
 
     try {
-      const supabase = createClient();
+      // 1. Authenticate with server-side login endpoint (sets HttpOnly cookie)
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, password: pass }),
+      });
 
-      // If Supabase is connected, attempt Supabase Auth
-      if (supabase) {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password: pass,
-        });
+      const data = await res.json();
 
-        if (!error && data?.user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', data.user.id)
-            .single();
+      if (res.ok && data.success && data.user) {
+        setUser(data.user);
+        localStorage.setItem('elnix_admin_session', JSON.stringify(data.user));
 
-          if (profile && profile.role === 'admin') {
-            const adminUser: UserProfile = {
-              id: data.user.id,
-              email: data.user.email || email,
-              full_name: profile.full_name || 'Elnix Administrator',
-              role: 'admin',
-            };
-            setUser(adminUser);
-            localStorage.setItem('elnix_admin_session', JSON.stringify(adminUser));
-            toast.success('Welcome back, Admin!', {
-              description: 'Successfully authenticated via Supabase.',
-            });
-            setIsLoading(false);
-            return true;
-          } else {
-            toast.error('Access Denied', {
-              description: 'Your account does not have Administrator privileges.',
-            });
-            await supabase.auth.signOut();
-            setIsLoading(false);
-            return false;
+        // Connect Supabase client session in background if supported
+        try {
+          const supabase = createClient();
+          if (supabase) {
+            await supabase.auth.signInWithPassword({ email, password: pass });
           }
+        } catch {
+          // Direct client sign-in optional; server cookie is authoritative
         }
-      }
 
-      // Default Admin / Demo credentials fallback
-      const normalizedEmail = email.trim().toLowerCase();
-      if (
-        (normalizedEmail === 'admin@elnixpowerzone.in' && pass === 'Elnix-user@2026') ||
-        (normalizedEmail === 'admin@elnixpowerzone.com' && pass === 'admin123') ||
-        (normalizedEmail === 'admin@elnix.com' && pass === 'admin123') ||
-        (pass === 'elnix2026')
-      ) {
-        const demoAdmin: UserProfile = {
-          id: 'admin-master',
-          email: normalizedEmail,
-          full_name: 'Elnix Administrator',
-          role: 'admin',
-        };
-        setUser(demoAdmin);
-        localStorage.setItem('elnix_admin_session', JSON.stringify(demoAdmin));
         toast.success('Admin Login Successful', {
           description: 'Logged into Elnix Powerzone CMS Dashboard.',
         });
@@ -150,9 +122,16 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
 
-      toast.error('Invalid Credentials', {
-        description: 'Incorrect email or password. Use demo credentials or configured Supabase user.',
-      });
+      if (res.status === 403) {
+        toast.error('Access Denied', {
+          description: 'Your account does not have Administrator privileges.',
+        });
+      } else {
+        toast.error('Invalid Credentials', {
+          description: data.error || 'Incorrect email or password.',
+        });
+      }
+
       setIsLoading(false);
       return false;
     } catch (err: unknown) {
@@ -166,12 +145,21 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     setIsLoading(true);
     try {
+      // Call server logout to clear HttpOnly cookie
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      }).catch(() => {});
+
       const supabase = createClient();
       if (supabase) {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut().catch(() => {});
       }
+
       localStorage.removeItem('elnix_admin_session');
+      localStorage.removeItem('elnix_admin_token');
       setUser(null);
+
       toast.info('Logged Out', {
         description: 'You have been securely signed out of the admin panel.',
       });
@@ -199,4 +187,3 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 export function useAdminAuth() {
   return useContext(AdminAuthContext);
 }
-

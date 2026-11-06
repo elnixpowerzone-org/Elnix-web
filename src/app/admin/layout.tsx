@@ -11,6 +11,7 @@ import {
   Tags, 
   Award, 
   Inbox, 
+  MapPin, 
   Settings, 
   LogOut, 
   ExternalLink, 
@@ -45,11 +46,14 @@ function AdminShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Guard: If not admin, redirect to login
-  if (!isAdmin) {
-    if (typeof window !== 'undefined') {
+  // Guard: If not admin, redirect to login via useEffect to prevent router setState during render
+  React.useEffect(() => {
+    if (!isLoading && !isAdmin && pathname !== '/admin/login') {
       router.push('/admin/login');
     }
+  }, [isLoading, isAdmin, pathname, router]);
+
+  if (!isAdmin) {
     return null;
   }
 
@@ -60,6 +64,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
     { label: 'Categories', href: '/admin/categories', icon: Tags },
     { label: 'Brands', href: '/admin/brands', icon: Award },
     { label: 'Customer Enquiries', href: '/admin/enquiries', icon: Inbox },
+    { label: 'Store Locations', href: '/admin/locations', icon: MapPin },
     { label: 'Store Settings', href: '/admin/settings', icon: Settings },
   ];
 
