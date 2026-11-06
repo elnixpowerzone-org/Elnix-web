@@ -17,10 +17,6 @@ export default function CtaBanner() {
       </div>
 
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
-        <span className="text-xs font-black tracking-widest text-sky-400 uppercase block">
-          NEED PRODUCT INFORMATION?
-        </span>
-
         <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight">
           Get in Touch
         </h2>

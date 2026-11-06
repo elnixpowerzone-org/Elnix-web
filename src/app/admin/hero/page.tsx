@@ -606,8 +606,8 @@ export default function AdminHeroPage() {
                   <span className="text-slate-400 text-[10px]">For Homes & Projects</span>
                 </div>
                 <div>
-                  <span className="font-bold text-white block">Convenient Location</span>
-                  <span className="text-slate-400 text-[10px]">Eruvely, Chottanikkara</span>
+                  <span className="font-bold text-white block">Wide Product Range</span>
+                  <span className="text-slate-400 text-[10px]">Electrical, Plumbing & Sanitary</span>
                 </div>
               </div>
             </div>

@@ -65,9 +65,6 @@ export default function CategoriesSection({ categories, brands = [] }: Categorie
         {/* Section Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 sm:mb-12 gap-6">
           <div className="space-y-2">
-            <span className="text-xs font-black tracking-widest text-sky-600 uppercase block">
-              OUR PRODUCT CATEGORIES
-            </span>
             <h2 className="text-3xl sm:text-4xl lg:text-[40px] font-black text-slate-900 tracking-tight leading-tight">
               Explore Our Product Range.
             </h2>
@@ -100,7 +97,7 @@ export default function CategoriesSection({ categories, brands = [] }: Categorie
               >
                 <Link href={targetUrl} className="flex flex-col h-full">
                   {/* Category Image Area - Edge-to-edge full bleed with rounded top corners */}
-                  <div className="relative h-44 sm:h-48 w-full bg-slate-100 overflow-hidden shrink-0">
+                  <div className="relative h-64 sm:h-48 w-full bg-slate-100 overflow-hidden shrink-0">
                     <CategoryCardImage
                       src={cat.image_url}
                       alt={cat.name}
@@ -110,27 +107,36 @@ export default function CategoriesSection({ categories, brands = [] }: Categorie
 
                   {/* Card Body */}
                   <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between bg-white">
-                    <div>
-                      {/* Icon + Title */}
-                      <div className="flex items-center gap-2.5 mb-1.5">
-                        <CategoryIcon
-                          icon={cat.icon}
-                          name={cat.name}
-                          className="w-5 h-5 text-sky-600 shrink-0"
-                        />
-                        <h3 className="font-extrabold text-slate-900 text-base sm:text-lg group-hover:text-sky-600 transition-colors line-clamp-1">
-                          {cat.name}
-                        </h3>
+                    <div className="flex items-center justify-between gap-3 sm:block">
+                      <div className="min-w-0 flex-1">
+                        {/* Icon + Title */}
+                        <div className="flex items-center gap-2.5 mb-1 sm:mb-1.5">
+                          <CategoryIcon
+                            icon={cat.icon}
+                            name={cat.name}
+                            className="w-5 h-5 text-sky-600 shrink-0"
+                          />
+                          <h3 className="font-extrabold text-slate-900 text-base sm:text-lg group-hover:text-sky-600 transition-colors line-clamp-1">
+                            {cat.name}
+                          </h3>
+                        </div>
+
+                        {/* Description */}
+                        <p className="text-xs sm:text-[13px] text-slate-500 line-clamp-2 leading-relaxed">
+                          {cat.description}
+                        </p>
                       </div>
 
-                      {/* Description */}
-                      <p className="text-xs sm:text-[13px] text-slate-500 line-clamp-2 leading-relaxed">
-                        {cat.description}
-                      </p>
+                      {/* Arrow Action on Mobile (aligned on the same row, at the right end) */}
+                      <div className="shrink-0 sm:hidden">
+                        <div className="w-8 h-8 rounded-full bg-sky-50 text-sky-600 group-hover:bg-sky-600 group-hover:text-white flex items-center justify-center transition-all shadow-2xs group-hover:shadow-sm">
+                          <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Arrow Action */}
-                    <div className="flex justify-end mt-4 pt-1">
+                    {/* Arrow Action on Desktop */}
+                    <div className="hidden sm:flex justify-end mt-4 pt-1">
                       <div className="w-8 h-8 rounded-full bg-sky-50 text-sky-600 group-hover:bg-sky-600 group-hover:text-white flex items-center justify-center transition-all shadow-2xs group-hover:shadow-sm">
                         <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                       </div>
