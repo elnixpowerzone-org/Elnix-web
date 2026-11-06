@@ -29,6 +29,14 @@ function AdminShell({ children }: { children: React.ReactNode }) {
   const { user, isAdmin, isLoading, logout } = useAdminAuth();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
+  // Guard: If not admin, redirect to login via useEffect to prevent router setState during render
+  // (Must be called before any conditional returns to strictly adhere to React Rules of Hooks)
+  React.useEffect(() => {
+    if (!isLoading && !isAdmin && pathname !== '/admin/login') {
+      router.push('/admin/login');
+    }
+  }, [isLoading, isAdmin, pathname, router]);
+
   // If on login page, render children directly without admin layout chrome
   if (pathname === '/admin/login') {
     return <>{children}</>;
@@ -45,13 +53,6 @@ function AdminShell({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-
-  // Guard: If not admin, redirect to login via useEffect to prevent router setState during render
-  React.useEffect(() => {
-    if (!isLoading && !isAdmin && pathname !== '/admin/login') {
-      router.push('/admin/login');
-    }
-  }, [isLoading, isAdmin, pathname, router]);
 
   if (!isAdmin) {
     return null;
