@@ -41,9 +41,6 @@ export default function LocationSection({ location: initialLocation }: LocationS
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-12">
           <div className="space-y-2">
-            <span className="text-xs font-black tracking-widest text-sky-600 uppercase block">
-              OUR SHOWROOMS
-            </span>
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
               Visit Our Store
             </h2>

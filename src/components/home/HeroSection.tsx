@@ -7,12 +7,34 @@ import {
   MapPin, 
   ShieldCheck, 
   Truck, 
-  Headphones, 
-  CheckCircle2,
-  Sparkles
+  Headset, 
+  PackageCheck 
 } from 'lucide-react';
 import { HeroSettings } from '@/types';
 import { initialHeroSettings } from '@/data/initialData';
+
+const HIGHLIGHT_FEATURES = [
+  {
+    icon: ShieldCheck,
+    title: 'Genuine Products',
+    desc: 'Trusted Brands',
+  },
+  {
+    icon: Truck,
+    title: 'Wholesale & Retail',
+    desc: 'Competitive Pricing',
+  },
+  {
+    icon: Headset,
+    title: 'Expert Support',
+    desc: 'For Homes & Projects',
+  },
+  {
+    icon: PackageCheck,
+    title: 'Wide Product Range',
+    desc: 'Electrical, Plumbing & Sanitary',
+  },
+];
 
 export default function HeroSection({ 
   hero: initialHero,
@@ -113,7 +135,7 @@ export default function HeroSection({
 
             <Link
               href={hero.secondary_button_link || '/locations'}
-              className="inline-flex items-center gap-2.5 px-7 py-4 rounded-xl bg-slate-900/60 hover:bg-slate-900/80 border border-white/25 text-white font-semibold text-sm backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 shadow-lg"
+              className="hidden sm:inline-flex items-center gap-2.5 px-7 py-4 rounded-xl bg-slate-900/60 hover:bg-slate-900/80 border border-white/25 text-white font-semibold text-sm backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 shadow-lg"
             >
               <MapPin className="w-4 h-4 text-sky-400" />
               <span>{hero.secondary_button_text || 'Visit Our Store'}</span>
@@ -124,67 +146,29 @@ export default function HeroSection({
 
       {/* 4. Hero Bottom Feature Strip (Translucent Glass Bar) */}
       <div className="relative z-10 border-t border-white/10 bg-slate-950/45 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 lg:gap-8">
-            {/* Feature 1 */}
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-sky-500/20 border border-sky-400/30 text-sky-400 flex items-center justify-center shrink-0 shadow-xs">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="text-sm font-bold text-white leading-snug">
-                  Genuine Products
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3.5 sm:py-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-8">
+            {HIGHLIGHT_FEATURES.map((item, idx) => {
+              const Icon = item.icon;
+              return (
+                <div
+                  key={idx}
+                  className="flex items-center gap-2.5 sm:gap-3.5 p-2.5 sm:p-0 rounded-xl bg-white/[0.03] sm:bg-transparent border border-white/5 sm:border-transparent h-full"
+                >
+                  <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-sky-500/20 border border-sky-400/30 text-sky-400 flex items-center justify-center shrink-0 shadow-xs">
+                    <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[12.5px] sm:text-sm font-bold text-white leading-[1.2] sm:leading-snug">
+                      {item.title}
+                    </div>
+                    <div className="text-[10.5px] sm:text-xs text-slate-300 leading-tight sm:leading-normal mt-0.5 sm:mt-0">
+                      {item.desc}
+                    </div>
+                  </div>
                 </div>
-                <div className="text-xs text-slate-300">
-                  Trusted Brands
-                </div>
-              </div>
-            </div>
-
-            {/* Feature 2 */}
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-sky-500/20 border border-sky-400/30 text-sky-400 flex items-center justify-center shrink-0 shadow-xs">
-                <Truck className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="text-sm font-bold text-white leading-snug">
-                  Wholesale & Retail
-                </div>
-                <div className="text-xs text-slate-300">
-                  Competitive Pricing
-                </div>
-              </div>
-            </div>
-
-            {/* Feature 3 */}
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-sky-500/20 border border-sky-400/30 text-sky-400 flex items-center justify-center shrink-0 shadow-xs">
-                <Headphones className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="text-sm font-bold text-white leading-snug">
-                  Expert Support
-                </div>
-                <div className="text-xs text-slate-300">
-                  For Homes & Projects
-                </div>
-              </div>
-            </div>
-
-            {/* Feature 4 */}
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-sky-500/20 border border-sky-400/30 text-sky-400 flex items-center justify-center shrink-0 shadow-xs">
-                <MapPin className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="text-sm font-bold text-white leading-snug">
-                  Convenient Location
-                </div>
-                <div className="text-xs text-slate-300">
-                  Eruvely, Chottanikkara
-                </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </div>
       </div>

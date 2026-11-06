@@ -77,17 +77,12 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-start">
               {/* Product Image Gallery Column */}
               <div className="lg:col-span-5 space-y-4">
-                <div className="relative aspect-square w-full rounded-2xl bg-slate-50 border border-slate-200 overflow-hidden flex items-center justify-center p-6 shadow-xs">
+                <div className="relative aspect-square w-full rounded-2xl bg-slate-100 border border-slate-200/80 overflow-hidden shadow-xs">
                   <img
                     src={product.image_url}
                     alt={product.name}
-                    className="w-full h-full object-contain"
+                    className="w-full h-full object-cover object-center"
                   />
-                  {product.is_popular && (
-                    <span className="absolute top-4 left-4 px-3 py-1 bg-amber-500 text-white text-[11px] font-black uppercase tracking-wider rounded-lg shadow-sm">
-                      Popular Pick
-                    </span>
-                  )}
                 </div>
 
                 {/* Additional gallery thumbs if any */}
@@ -218,9 +213,6 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-xs font-bold text-sky-600 uppercase tracking-wider block">
-                    RELATED SUPPLIES
-                  </span>
                   <h2 className="text-2xl font-black text-slate-900">
                     More in {product.category?.name || 'this category'}
                   </h2>
@@ -238,16 +230,16 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
                   <Link
                     key={rel.id}
                     href={`/products/${rel.slug}`}
-                    className="p-4 bg-white rounded-2xl border border-slate-200/80 hover:shadow-md hover:border-sky-300 transition-all group flex flex-col justify-between"
+                    className="bg-white rounded-2xl border border-slate-200/80 hover:shadow-md hover:border-sky-300 transition-all group flex flex-col justify-between overflow-hidden"
                   >
-                    <div className="aspect-square w-full rounded-xl bg-slate-50 p-2 mb-3 flex items-center justify-center">
+                    <div className="aspect-square w-full bg-slate-100 overflow-hidden shrink-0">
                       <img
                         src={rel.image_url}
                         alt={rel.name}
-                        className="w-full h-full object-contain group-hover:scale-105 transition-transform"
+                        className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform"
                       />
                     </div>
-                    <div>
+                    <div className="p-3.5 sm:p-4">
                       <h4 className="text-sm font-bold text-slate-900 group-hover:text-sky-600 transition-colors line-clamp-1">
                         {rel.name}
                       </h4>

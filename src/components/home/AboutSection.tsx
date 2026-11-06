@@ -66,10 +66,6 @@ export default function AboutSection() {
 
           {/* Right Column: About Content */}
           <div className="lg:col-span-6 space-y-6">
-            <span className="text-xs font-black tracking-widest text-sky-600 uppercase block">
-              ABOUT ELNIX POWERZONE
-            </span>
-
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight">
               Quality Products for <br />
               <span className="text-sky-600">a Brighter Tomorrow.</span>
@@ -79,23 +75,23 @@ export default function AboutSection() {
               Elnix Powerzone is a leading wholesale and retail supplier of electrical, battery, plumbing and sanitary products, located at Eruvely, Chottanikkara, Ernakulam. We are committed to providing genuine products, trusted brands and reliable support for residential, commercial and project requirements.
             </p>
 
-            {/* 4 Feature Badges Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            {/* 4 Feature Badges Grid (2-column layout on mobile & desktop) */}
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-4 pt-2">
               {highlights.map((h, i) => {
                 const Icon = h.icon;
                 return (
                   <div
                     key={i}
-                    className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-md transition-shadow flex items-start gap-3.5"
+                    className="p-2.5 sm:p-4 rounded-xl sm:rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-md transition-shadow flex items-start gap-2.5 sm:gap-3.5 h-full"
                   >
-                    <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
-                      <Icon className="w-5 h-5" />
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
+                      <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-900 leading-snug">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-snug">
                         {h.title}
                       </h4>
-                      <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                      <p className="text-[10.5px] sm:text-xs text-slate-500 mt-0.5 leading-tight sm:leading-relaxed">
                         {h.description}
                       </p>
                     </div>
