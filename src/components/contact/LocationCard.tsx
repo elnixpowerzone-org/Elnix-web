@@ -4,21 +4,22 @@ import React, { useState } from 'react';
 import { 
   MapPin, 
   Phone, 
-  Mail, 
-  Clock, 
   Navigation, 
   MessageCircle, 
   Star, 
   ExternalLink,
-  Compass
+  Compass,
+  Mail,
+  Clock
 } from 'lucide-react';
 import { StoreLocation } from '@/types';
 
 interface LocationCardProps {
   location: StoreLocation;
+  layout?: 'horizontal' | 'detailed';
 }
 
-export default function LocationCard({ location }: LocationCardProps) {
+export default function LocationCard({ location, layout = 'horizontal' }: LocationCardProps) {
   const [mapError, setMapError] = useState(false);
 
   // Clean phone and WhatsApp
@@ -60,6 +61,123 @@ export default function LocationCard({ location }: LocationCardProps) {
 
   const embedUrl = getEmbedUrl();
 
+  // Compact horizontal product-style card for Contact page (2-column desktop grid friendly)
+  if (layout === 'horizontal') {
+    return (
+      <div 
+        className={`bg-white rounded-2xl border transition-all duration-200 overflow-hidden shadow-2xs hover:shadow-md flex flex-col sm:flex-row group h-full ${
+          location.is_primary ? 'border-sky-300 ring-1 ring-sky-500/20' : 'border-slate-200/90 hover:border-slate-300'
+        }`}
+      >
+        {/* Left: Small Map Thumbnail / Compact Preview with Fixed Dimensions */}
+        <div className="relative w-full sm:w-44 md:w-48 lg:w-44 xl:w-48 shrink-0 h-36 sm:h-auto min-h-[150px] bg-slate-100 overflow-hidden border-b sm:border-b-0 sm:border-r border-slate-200/80">
+          {!mapError && embedUrl ? (
+            <iframe
+              title={`${location.name} Map Location`}
+              src={embedUrl}
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              onError={() => setMapError(true)}
+              className="w-full h-full pointer-events-none"
+            />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center bg-slate-50 text-slate-400">
+              <Compass className="w-6 h-6 text-sky-500 mb-1" />
+              <span className="text-[11px] font-bold text-slate-700 truncate max-w-[140px]">{location.name}</span>
+            </div>
+          )}
+
+          {/* Map Clickable Overlay with subtle 'View Map' indicator */}
+          <a
+            href={directionsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute inset-0 z-10 flex items-end justify-between p-2.5 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent group-hover:from-slate-900/75 transition-all"
+            title="Open in Google Maps"
+          >
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white/95 text-slate-900 text-[10px] font-bold shadow-xs backdrop-blur-xs group-hover:bg-white group-hover:text-sky-600 transition-colors">
+              <ExternalLink className="w-3 h-3 text-sky-600" />
+              <span>View Map</span>
+            </span>
+          </a>
+        </div>
+
+        {/* Right: Location Details & Actions */}
+        <div className="p-3.5 sm:p-4 flex-1 min-w-0 flex flex-col justify-between">
+          <div className="space-y-1.5">
+            {/* Badges: Location Type & Primary Badge */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-100 max-w-full truncate">
+                {location.branch_label || 'Showroom'}
+              </span>
+
+              {location.is_primary && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200/70 text-[10px] font-black uppercase tracking-wider shrink-0">
+                  <Star className="w-3 h-3 fill-amber-400 text-amber-500" />
+                  <span>Headquarters</span>
+                </span>
+              )}
+            </div>
+
+            {/* Location Name */}
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-snug break-words">
+              {location.name}
+            </h3>
+
+            {/* Short Address */}
+            {location.address && (
+              <div className="flex items-start gap-1.5 text-xs text-slate-600 pt-0.5">
+                <MapPin className="w-3.5 h-3.5 text-sky-600 shrink-0 mt-0.5" />
+                <span className="leading-relaxed line-clamp-2 break-words">{location.address}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Action Buttons: Directions, Call, WhatsApp */}
+          <div className="pt-3 mt-3 border-t border-slate-100 flex items-center gap-1.5 sm:gap-2">
+            {/* Directions Button */}
+            <a
+              href={directionsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-[#0b1a30] hover:bg-sky-600 text-white text-[11px] font-bold transition-all shadow-xs text-center cursor-pointer min-h-[38px]"
+              title="Get driving directions in Google Maps"
+            >
+              <Navigation className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <span className="truncate">Directions</span>
+            </a>
+
+            {/* Call Button */}
+            <a
+              href={`tel:${cleanPhone}`}
+              className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold transition-colors text-center cursor-pointer min-h-[38px]"
+              title={`Call ${rawPhone}`}
+            >
+              <Phone className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+              <span className="truncate">Call</span>
+            </a>
+
+            {/* WhatsApp Button */}
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition-all shadow-xs text-center cursor-pointer min-h-[38px]"
+              title="Chat on WhatsApp"
+            >
+              <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">WhatsApp</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Detailed layout for legacy / standalone locations page
   return (
     <div 
       className={`bg-white rounded-3xl border transition-all duration-200 overflow-hidden shadow-2xs hover:shadow-xl flex flex-col justify-between ${
@@ -124,7 +242,7 @@ export default function LocationCard({ location }: LocationCardProps) {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0b1a30] hover:bg-sky-600 text-white text-[11px] font-bold transition-colors"
                 >
-                  <Navigation className="w-3 h-3 text-sky-400" />
+                  <Navigation className="w-3.5 h-3.5 text-sky-400" />
                   <span>Open in Google Maps</span>
                 </a>
               </div>
@@ -224,4 +342,3 @@ export default function LocationCard({ location }: LocationCardProps) {
     </div>
   );
 }
-
