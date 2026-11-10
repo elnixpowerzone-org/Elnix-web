@@ -72,6 +72,8 @@ export interface StoreLocation {
   email?: string;
   timings: string;
   description?: string;
+  image_url?: string;
+  image_url_2?: string;
   map_embed_url?: string;
   map_directions_url?: string;
   latitude?: number;

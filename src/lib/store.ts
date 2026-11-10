@@ -1241,6 +1241,24 @@ export async function updateHeroSettings(settings: Partial<HeroSettings>): Promi
 }
 
 // ---------------- STORE LOCATIONS ----------------
+export function getNormalizedLocationKey(loc?: { id?: string; name?: string }): string {
+  if (!loc) return '';
+  const name = (loc.name || '').toLowerCase().trim();
+  const id = (loc.id || '').toLowerCase().trim();
+  if (name.includes('elnix powerzone') || name.includes('chottanikkara') || id === 'loc-chottanikkara') {
+    return 'shop-chottanikkara';
+  }
+  if (
+    name.includes('powerzone trade') ||
+    name.includes('trade links') ||
+    name.includes('udayamperoor') ||
+    id === 'loc-udayamperoor'
+  ) {
+    return 'shop-udayamperoor';
+  }
+  return id || name || 'unknown';
+}
+
 const localDeletedLocationKeys = new Set<string>();
 
 async function getDeletedLocationKeys(): Promise<Set<string>> {
@@ -1319,51 +1337,118 @@ export async function getStoreLocations(options?: { onlyVisible?: boolean }): Pr
 
   if (adminClient) {
     try {
-      const { data, error } = await adminClient
+      // 1. Try public.locations table first
+      const { data: tableData, error: tableError } = await adminClient
+        .from('locations')
+        .select('*')
+        .order('display_order', { ascending: true });
+
+      if (!tableError && Array.isArray(tableData) && tableData.length > 0) {
+        supabaseLocations = tableData.map((row) => ({
+          id: String(row.id),
+          name: row.name || '',
+          branch_label: row.branch_label || '',
+          address: row.address || '',
+          phone: row.phone || '',
+          whatsapp: row.whatsapp || '',
+          email: row.email || '',
+          timings: row.timings || 'Mon - Sat: 9:00 AM - 8:00 PM\nSunday: 9:00 AM - 4:00 PM',
+          description: row.description || '',
+          image_url: row.image_url || '',
+          image_url_2: row.image_url_2 || '',
+          map_embed_url: row.map_embed_url || '',
+          map_directions_url: row.map_directions_url || '',
+          latitude: row.latitude ? Number(row.latitude) : undefined,
+          longitude: row.longitude ? Number(row.longitude) : undefined,
+          is_primary: Boolean(row.is_primary),
+          is_visible: row.is_visible !== false,
+          display_order: Number(row.display_order ?? 1),
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+        }));
+      }
+
+      // 2. Also check site_settings for any custom updates if locations table was empty or missing images
+      const { data: settingsData, error: settingsError } = await adminClient
         .from('site_settings')
         .select('value')
         .eq('key', 'store_locations')
         .single();
-      if (!error && data?.value && Array.isArray((data.value as { locations?: StoreLocation[] }).locations)) {
-        supabaseLocations = (data.value as { locations: StoreLocation[] }).locations;
+
+      if (!settingsError && settingsData?.value && Array.isArray((settingsData.value as { locations?: StoreLocation[] }).locations)) {
+        const fromSettings = (settingsData.value as { locations: StoreLocation[] }).locations;
+        if (supabaseLocations.length === 0) {
+          supabaseLocations = fromSettings;
+        } else {
+          for (const sLoc of fromSettings) {
+            const sKey = getNormalizedLocationKey(sLoc);
+            const found = supabaseLocations.find(l => getNormalizedLocationKey(l) === sKey);
+            if (found) {
+              if (!found.image_url && sLoc.image_url) found.image_url = sLoc.image_url;
+              if (!found.image_url_2 && sLoc.image_url_2) found.image_url_2 = sLoc.image_url_2;
+            }
+          }
+        }
       }
     } catch (err) {
-      console.warn('Supabase store_locations settings error:', err);
+      console.warn('Supabase store locations fetch error:', err);
     }
   }
 
   const deletedKeys = await getDeletedLocationKeys();
 
   // Combine: presets + saved Supabase locations + memory store
+  // Use normalized key so Shop 1 and Shop 2 never cross-overwrite or duplicate
   const locationMap = new Map<string, StoreLocation>();
 
   // 1. Initial presets
   for (const loc of initialStoreLocations) {
-    locationMap.set(loc.id, { ...loc });
+    const key = getNormalizedLocationKey(loc);
+    locationMap.set(key, { ...loc });
   }
 
   // 2. Supabase persisted locations (supersedes presets)
   for (const loc of supabaseLocations) {
-    locationMap.set(loc.id, { ...(locationMap.get(loc.id) || {}), ...loc });
+    const key = getNormalizedLocationKey(loc);
+    const existing = locationMap.get(key);
+    if (existing) {
+      locationMap.set(key, {
+        ...existing,
+        ...loc,
+        image_url: loc.image_url || existing.image_url || '',
+        image_url_2: loc.image_url_2 || existing.image_url_2 || '',
+      });
+    } else {
+      locationMap.set(key, { ...loc });
+    }
   }
 
   // 3. Memory store
   for (const loc of locationsStore) {
-    if (locationMap.has(loc.id)) {
-      locationMap.set(loc.id, { ...locationMap.get(loc.id)!, ...loc });
+    const key = getNormalizedLocationKey(loc);
+    const existing = locationMap.get(key);
+    if (existing) {
+      locationMap.set(key, {
+        ...existing,
+        ...loc,
+        image_url: loc.image_url || existing.image_url || '',
+        image_url_2: loc.image_url_2 || existing.image_url_2 || '',
+      });
     } else {
-      locationMap.set(loc.id, { ...loc });
+      locationMap.set(key, { ...loc });
     }
   }
 
   // Filter out deleted locations
-  let list = Array.from(locationMap.values()).filter(loc => {
-    return !deletedKeys.has(loc.id.toLowerCase());
+  let list = Array.from(locationMap.values()).filter((loc) => {
+    const idKey = loc.id.toLowerCase();
+    const normKey = getNormalizedLocationKey(loc).toLowerCase();
+    return !deletedKeys.has(idKey) && !deletedKeys.has(normKey);
   });
 
   // Filter visibility if required
   if (options?.onlyVisible) {
-    list = list.filter(loc => loc.is_visible !== false);
+    list = list.filter((loc) => loc.is_visible !== false);
   }
 
   // Sort by display_order ascending
@@ -1372,52 +1457,74 @@ export async function getStoreLocations(options?: { onlyVisible?: boolean }): Pr
 
 export async function getStoreLocationById(id: string): Promise<StoreLocation | null> {
   const all = await getStoreLocations();
-  return all.find(l => l.id === id) || null;
+  return all.find((l) => l.id === id || getNormalizedLocationKey(l) === getNormalizedLocationKey({ id })) || null;
 }
 
 export async function saveStoreLocation(location: Partial<StoreLocation>): Promise<StoreLocation> {
   const adminClient = createAdminClient();
   const currentLocations = await getStoreLocations();
-  const targetId = location.id || `loc-${Date.now()}`;
+
+  const targetKey = getNormalizedLocationKey(location);
+  const existingLoc = currentLocations.find((l) => getNormalizedLocationKey(l) === targetKey || l.id === location.id);
+
+  // Keep the UUID if one exists, otherwise generate or keep preset ID
+  const targetId = location.id || existingLoc?.id || (
+    targetKey === 'shop-chottanikkara' 
+      ? 'loc-chottanikkara' 
+      : targetKey === 'shop-udayamperoor' 
+        ? 'loc-udayamperoor' 
+        : `loc-${Date.now()}`
+  );
 
   // Unmark from deleted list if re-saving
-  await unmarkLocationAsDeleted([targetId]);
+  await unmarkLocationAsDeleted([targetId, targetKey]);
 
   const isPrimary = location.is_primary === true;
-  const existingIdx = currentLocations.findIndex(l => l.id === targetId);
+  const existingIdx = currentLocations.findIndex((l) => getNormalizedLocationKey(l) === targetKey || l.id === targetId);
   const baseOrder = existingIdx !== -1 ? (currentLocations[existingIdx].display_order ?? (existingIdx + 1)) : currentLocations.length + 1;
+
+  // Preserve previous image_url if not explicitly modified
+  const finalImageUrl = location.image_url !== undefined && location.image_url !== null && location.image_url !== ''
+    ? location.image_url
+    : (existingLoc?.image_url || '');
+
+  const finalImageUrl2 = location.image_url_2 !== undefined && location.image_url_2 !== null && location.image_url_2 !== ''
+    ? location.image_url_2
+    : (existingLoc?.image_url_2 || '');
 
   const finalLocation: StoreLocation = {
     id: targetId,
-    name: location.name || 'New Location',
-    branch_label: location.branch_label || 'Showroom & Branch',
-    address: location.address || '',
-    phone: location.phone || '',
-    whatsapp: location.whatsapp || '',
-    email: location.email || '',
-    timings: location.timings || 'Mon - Sat: 9:00 AM - 8:00 PM',
-    description: location.description || '',
-    map_embed_url: location.map_embed_url || '',
-    map_directions_url: location.map_directions_url || '',
-    latitude: location.latitude,
-    longitude: location.longitude,
+    name: location.name || existingLoc?.name || 'Store Location',
+    branch_label: location.branch_label !== undefined ? location.branch_label : (existingLoc?.branch_label || ''),
+    address: location.address || existingLoc?.address || '',
+    phone: location.phone || existingLoc?.phone || '',
+    whatsapp: location.whatsapp || existingLoc?.whatsapp || '',
+    email: location.email || existingLoc?.email || '',
+    timings: location.timings || existingLoc?.timings || 'Mon - Sat: 9:00 AM - 8:00 PM\nSunday: 9:00 AM - 4:00 PM',
+    description: location.description !== undefined ? location.description : (existingLoc?.description || ''),
+    image_url: finalImageUrl,
+    image_url_2: finalImageUrl2,
+    map_embed_url: location.map_embed_url || existingLoc?.map_embed_url || '',
+    map_directions_url: location.map_directions_url || existingLoc?.map_directions_url || '',
+    latitude: location.latitude ?? existingLoc?.latitude,
+    longitude: location.longitude ?? existingLoc?.longitude,
     is_primary: isPrimary,
     is_visible: location.is_visible !== false,
     display_order: location.display_order ?? baseOrder,
-    created_at: existingIdx !== -1 ? currentLocations[existingIdx].created_at : new Date().toISOString(),
+    created_at: existingLoc?.created_at || new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
 
   // If this location is primary, unset is_primary on all other locations
-  let updatedList = currentLocations.map(l => {
-    if (l.id === targetId) return finalLocation;
+  let updatedList = currentLocations.map((l) => {
+    if (getNormalizedLocationKey(l) === targetKey || l.id === targetId) return finalLocation;
     if (isPrimary && l.is_primary) return { ...l, is_primary: false };
     return l;
   });
 
   if (existingIdx === -1) {
     if (isPrimary) {
-      updatedList = updatedList.map(l => ({ ...l, is_primary: false }));
+      updatedList = updatedList.map((l) => ({ ...l, is_primary: false }));
     }
     updatedList.push(finalLocation);
   }
@@ -1425,8 +1532,92 @@ export async function saveStoreLocation(location: Partial<StoreLocation>): Promi
   // Update in-memory store
   locationsStore = updatedList;
 
-  // Persist to Supabase site_settings under 'store_locations'
+  // Persist to Supabase
   if (adminClient) {
+    // 1. Persist to public.locations table
+    try {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId);
+
+      if (isUuid) {
+        await adminClient
+          .from('locations')
+          .upsert({
+            id: targetId,
+            name: finalLocation.name,
+            branch_label: finalLocation.branch_label,
+            address: finalLocation.address,
+            phone: finalLocation.phone,
+            whatsapp: finalLocation.whatsapp,
+            email: finalLocation.email,
+            timings: finalLocation.timings,
+            description: finalLocation.description,
+            image_url: finalLocation.image_url,
+            image_url_2: finalLocation.image_url_2,
+            map_embed_url: finalLocation.map_embed_url,
+            map_directions_url: finalLocation.map_directions_url,
+            latitude: finalLocation.latitude,
+            longitude: finalLocation.longitude,
+            is_primary: finalLocation.is_primary,
+            is_visible: finalLocation.is_visible,
+            display_order: finalLocation.display_order,
+            updated_at: new Date().toISOString(),
+          });
+      } else {
+        const { data: updateData, error: updateError } = await adminClient
+          .from('locations')
+          .update({
+            name: finalLocation.name,
+            branch_label: finalLocation.branch_label,
+            address: finalLocation.address,
+            phone: finalLocation.phone,
+            whatsapp: finalLocation.whatsapp,
+            email: finalLocation.email,
+            timings: finalLocation.timings,
+            description: finalLocation.description,
+            image_url: finalLocation.image_url,
+            image_url_2: finalLocation.image_url_2,
+            map_embed_url: finalLocation.map_embed_url,
+            map_directions_url: finalLocation.map_directions_url,
+            latitude: finalLocation.latitude,
+            longitude: finalLocation.longitude,
+            is_primary: finalLocation.is_primary,
+            is_visible: finalLocation.is_visible,
+            display_order: finalLocation.display_order,
+            updated_at: new Date().toISOString(),
+          })
+          .ilike('name', `%${finalLocation.name.trim()}%`)
+          .select();
+
+        if (updateError || !updateData || updateData.length === 0) {
+          await adminClient
+            .from('locations')
+            .insert({
+              name: finalLocation.name,
+              branch_label: finalLocation.branch_label,
+              address: finalLocation.address,
+              phone: finalLocation.phone,
+              whatsapp: finalLocation.whatsapp,
+              email: finalLocation.email,
+              timings: finalLocation.timings,
+              description: finalLocation.description,
+              image_url: finalLocation.image_url,
+              image_url_2: finalLocation.image_url_2,
+              map_embed_url: finalLocation.map_embed_url,
+              map_directions_url: finalLocation.map_directions_url,
+              latitude: finalLocation.latitude,
+              longitude: finalLocation.longitude,
+              is_primary: finalLocation.is_primary,
+              is_visible: finalLocation.is_visible,
+              display_order: finalLocation.display_order,
+              updated_at: new Date().toISOString(),
+            });
+        }
+      }
+    } catch (err) {
+      console.warn('Supabase public.locations save error:', err);
+    }
+
+    // 2. Persist to site_settings under 'store_locations' for fallback redundancy
     try {
       await adminClient
         .from('site_settings')
@@ -1445,17 +1636,30 @@ export async function saveStoreLocation(location: Partial<StoreLocation>): Promi
 
 export async function deleteStoreLocation(id: string): Promise<boolean> {
   const adminClient = createAdminClient();
+  const currentLocations = await getStoreLocations();
+  const targetLoc = currentLocations.find((l) => l.id === id);
+  const normKey = targetLoc ? getNormalizedLocationKey(targetLoc) : id;
 
   // 1. Mark in persistent deleted list immediately
-  await markLocationAsDeleted([id]);
+  await markLocationAsDeleted([id, normKey]);
 
   // 2. Remove from locations list
-  const currentLocations = await getStoreLocations();
-  const updatedList = currentLocations.filter(l => l.id !== id);
+  const updatedList = currentLocations.filter((l) => l.id !== id && getNormalizedLocationKey(l) !== normKey);
   locationsStore = updatedList;
 
-  // 3. Persist to Supabase site_settings
+  // 3. Persist to Supabase
   if (adminClient) {
+    try {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      if (isUuid) {
+        await adminClient.from('locations').delete().eq('id', id);
+      } else if (targetLoc?.name) {
+        await adminClient.from('locations').delete().ilike('name', `%${targetLoc.name}%`);
+      }
+    } catch (err) {
+      console.warn('Supabase public.locations delete error:', err);
+    }
+
     try {
       await adminClient
         .from('site_settings')
@@ -1474,7 +1678,7 @@ export async function deleteStoreLocation(id: string): Promise<boolean> {
 
 export async function reorderStoreLocations(orderedIds: string[]): Promise<boolean> {
   const currentLocations = await getStoreLocations();
-  const updatedList = currentLocations.map(loc => {
+  const updatedList = currentLocations.map((loc) => {
     const newIndex = orderedIds.indexOf(loc.id);
     if (newIndex !== -1) {
       return { ...loc, display_order: newIndex + 1 };
@@ -1487,6 +1691,17 @@ export async function reorderStoreLocations(orderedIds: string[]): Promise<boole
 
   const adminClient = createAdminClient();
   if (adminClient) {
+    try {
+      for (const loc of updatedList) {
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(loc.id);
+        if (isUuid) {
+          await adminClient.from('locations').update({ display_order: loc.display_order }).eq('id', loc.id);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to update display_order in locations table:', err);
+    }
+
     try {
       await adminClient
         .from('site_settings')

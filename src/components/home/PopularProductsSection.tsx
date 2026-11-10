@@ -87,7 +87,7 @@ export default function PopularProductsSection({ products }: PopularProductsSect
                           >
                             {product.name}
                           </Link>
-                            <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
+                            <p className="text-xs sm:text-[13px] text-slate-600 line-clamp-2 leading-relaxed">
                               {product.tagline || product.description}
                             </p>
                         </div>

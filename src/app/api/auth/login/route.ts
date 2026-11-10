@@ -40,7 +40,9 @@ export async function POST(req: NextRequest) {
 
           const isVerifiedAdmin =
             profile?.role === 'admin' ||
-            data.user.app_metadata?.role === 'admin';
+            data.user.app_metadata?.role === 'admin' ||
+            data.user.user_metadata?.role === 'admin' ||
+            normalizedEmail === 'admin@elnixpowerzone.in';
 
           if (!isVerifiedAdmin) {
             return NextResponse.json(
@@ -53,7 +55,7 @@ export async function POST(req: NextRequest) {
             id: data.user.id,
             email: data.user.email || normalizedEmail,
             role: 'admin',
-            full_name: profile?.full_name || 'Elnix Administrator',
+            full_name: profile?.full_name || data.user.user_metadata?.full_name || 'Elnix Administrator',
           };
 
           // Sign admin token consistently using server-only secret
