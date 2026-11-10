@@ -122,7 +122,7 @@ export default function CategoriesSection({ categories, brands = [] }: Categorie
                         </div>
 
                         {/* Description */}
-                        <p className="text-xs sm:text-[13px] text-slate-500 line-clamp-2 leading-relaxed">
+                        <p className="text-sm sm:text-[15px] text-slate-600 line-clamp-2 leading-relaxed mt-1">
                           {cat.description}
                         </p>
                       </div>

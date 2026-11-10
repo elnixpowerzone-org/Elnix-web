@@ -23,10 +23,12 @@ import {
   ArrowDown, 
   Sparkles,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Image as ImageIcon
 } from 'lucide-react';
 import { StoreLocation } from '@/types';
 import ConfirmationModal from '@/components/ConfirmationModal';
+import ImageUploader from '@/components/ImageUploader';
 import { toast } from 'sonner';
 
 export default function AdminLocationsPage() {
@@ -67,11 +69,13 @@ export default function AdminLocationsPage() {
       name: '',
       branch_label: '',
       address: '',
-      phone: '8848 318 521',
-      whatsapp: '918848318521',
+      phone: '',
+      whatsapp: '',
       email: 'elnixpowerzone@gmail.com',
       timings: 'Mon - Sat: 9:00 AM - 8:00 PM\nSunday: 9:00 AM - 4:00 PM',
       description: '',
+      image_url: '',
+      image_url_2: '',
       map_embed_url: '',
       map_directions_url: '',
       is_primary: locations.length === 0,
@@ -84,6 +88,9 @@ export default function AdminLocationsPage() {
   const handleOpenEdit = (loc: StoreLocation) => {
     setEditingLocation({
       ...loc,
+      id: loc.id,
+      image_url: loc.image_url || '',
+      image_url_2: loc.image_url_2 || '',
       is_primary: loc.is_primary === true,
       is_visible: loc.is_visible !== false,
       display_order: loc.display_order ?? 1,
@@ -215,14 +222,17 @@ export default function AdminLocationsPage() {
     try {
       const payload: Partial<StoreLocation> = {
         ...editingLocation,
+        id: editingLocation.id,
         name: editingLocation.name.trim(),
-        branch_label: editingLocation.branch_label?.trim() || 'Store Branch',
+        branch_label: editingLocation.branch_label?.trim() || '',
         address: editingLocation.address.trim(),
-        phone: editingLocation.phone?.trim() || '8848 318 521',
-        whatsapp: editingLocation.whatsapp?.trim() || '918848318521',
+        phone: editingLocation.phone?.trim() || '',
+        whatsapp: editingLocation.whatsapp?.trim() || '',
         email: editingLocation.email?.trim() || '',
-        timings: editingLocation.timings?.trim() || 'Mon - Sat: 9:00 AM - 8:00 PM',
+        timings: editingLocation.timings?.trim() || 'Mon - Sat: 9:00 AM - 8:00 PM\nSunday: 9:00 AM - 4:00 PM',
         description: editingLocation.description?.trim() || '',
+        image_url: editingLocation.image_url || '',
+        image_url_2: editingLocation.image_url_2 || '',
         map_embed_url: parseEmbedUrlInput(editingLocation.map_embed_url || ''),
         map_directions_url: editingLocation.map_directions_url?.trim() || '',
         is_primary: editingLocation.is_primary === true,
@@ -478,9 +488,11 @@ export default function AdminLocationsPage() {
 
                     {/* Location Title & Branch */}
                     <div>
-                      <span className="text-[11px] font-extrabold uppercase tracking-widest text-sky-600 block">
-                        {loc.branch_label || 'Branch Store'}
-                      </span>
+                      {loc.branch_label ? (
+                        <span className="text-[11px] font-extrabold uppercase tracking-widest text-sky-600 block">
+                          {loc.branch_label}
+                        </span>
+                      ) : null}
                       <h3 className="text-xl font-black text-slate-900 mt-0.5">
                         {loc.name}
                       </h3>
@@ -553,6 +565,22 @@ export default function AdminLocationsPage() {
                           </span>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Shop Photo Thumbnail if uploaded */}
+                    <div className="pt-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                        Shop Photo
+                      </span>
+                      {loc.image_url ? (
+                        <div className="relative h-16 w-28 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shadow-2xs group">
+                          <img src={loc.image_url} alt={loc.name} className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-400 text-[11px] font-medium border border-slate-200">
+                          No photo uploaded
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -776,6 +804,29 @@ export default function AdminLocationsPage() {
                     value={editingLocation.description || ''}
                     onChange={(e) => setEditingLocation({ ...editingLocation, description: e.target.value })}
                     className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none leading-relaxed"
+                  />
+                </div>
+              </div>
+
+              {/* Shop Photo Upload (1 Image Option) */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                <div>
+                  <span className="text-xs font-bold text-sky-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    <span>Shop Image</span>
+                  </span>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Upload 1 storefront image for this shop. It will display at the top of the location card on the storefront.
+                  </p>
+                </div>
+
+                <div className="pt-1">
+                  <ImageUploader
+                    label="Shop Image (Storefront / Building Front View)"
+                    value={editingLocation.image_url}
+                    folder="elnix_locations"
+                    helpText="Building front, signboard, or showroom entrance view"
+                    onChange={(url) => setEditingLocation({ ...editingLocation, image_url: url })}
                   />
                 </div>
               </div>

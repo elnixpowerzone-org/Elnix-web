@@ -10,8 +10,8 @@ export default function Navbar() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const quoteWhatsappUrl = `https://wa.me/918848318521?text=${encodeURIComponent(
-    'Hello Elnix Powerzone, I would like to get a quotation for products. Could you please share the pricing, catalog, and availability details?'
+  const enquiryWhatsappUrl = `https://wa.me/918848318521?text=${encodeURIComponent(
+    'Hello Elnix Powerzone, I have an enquiry about your products. Could you please share the pricing, catalog, and availability details?'
   )}`;
 
   const navLinks = [
@@ -40,7 +40,7 @@ export default function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-xs transition-all">
+      <header className="sticky top-0 z-40 bg-slate-200/95 backdrop-blur-md border-b border-slate-300 shadow-xs transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20 sm:h-22">
             {/* Brand Logo */}
@@ -48,9 +48,9 @@ export default function Navbar() {
               <Image
                 src="/logo.png"
                 alt="ELNIX POWERZONE"
-                width={260}
-                height={76}
-                className="h-12 sm:h-14 lg:h-15 w-auto object-contain transition-transform duration-200 group-hover:scale-105"
+                width={200}
+                height={58}
+                className="h-6.5 sm:h-8 md:h-9 lg:h-10 w-auto object-contain transition-transform duration-200 group-hover:scale-105"
                 priority
               />
             </Link>
@@ -65,8 +65,8 @@ export default function Navbar() {
                     href={link.href}
                     className={`px-3.5 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
                       active
-                        ? 'text-sky-600 bg-sky-50/80 font-bold'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                        ? 'text-sky-600 bg-white font-bold shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
                     }`}
                   >
                     {link.label}
@@ -75,14 +75,14 @@ export default function Navbar() {
               })}
             </nav>
 
-            {/* Right CTAs (Desktop): Phone + Get a Quote */}
+            {/* Right CTAs (Desktop): Phone + Enquiry */}
             <div className="hidden lg:flex items-center gap-6">
               {/* Phone CTA */}
               <a
                 href="tel:8848318521"
                 className="flex items-center gap-3 text-left group"
               >
-                <div className="w-10 h-10 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center group-hover:bg-sky-600 group-hover:text-white transition-all shadow-xs">
+                <div className="w-10 h-10 rounded-full bg-white text-sky-600 flex items-center justify-center group-hover:bg-sky-600 group-hover:text-white transition-all shadow-xs">
                   <Phone className="w-4 h-4" />
                 </div>
                 <div>
@@ -95,14 +95,14 @@ export default function Navbar() {
                 </div>
               </a>
 
-              {/* Get a Quote Button */}
+              {/* Enquiry Button */}
               <a
-                href={quoteWhatsappUrl}
+                href={enquiryWhatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0b1a30] hover:bg-[#162a4a] text-white text-sm font-bold shadow-md hover:shadow-lg transition-all transform active:scale-98 cursor-pointer"
               >
-                <span>Get a Quote</span>
+                <span>Enquiry</span>
                 <ArrowRight className="w-4 h-4 text-sky-400" />
               </a>
             </div>
@@ -110,12 +110,12 @@ export default function Navbar() {
             {/* Mobile Header Buttons */}
             <div className="flex md:hidden items-center gap-2.5">
               <a
-                href={quoteWhatsappUrl}
+                href={enquiryWhatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-3.5 py-1.5 bg-[#0b1a30] text-white text-xs font-bold rounded-lg cursor-pointer"
               >
-                Quote
+                Enquiry
               </a>
               <button
                 onClick={() => setMobileMenuOpen(true)}
@@ -132,7 +132,7 @@ export default function Navbar() {
         {mobileMenuOpen && (
           <div className="fixed inset-0 z-50 bg-white h-[100dvh] w-full flex flex-col justify-between overflow-y-auto animate-in fade-in duration-200">
             {/* Top Bar with Brand Logo and Close Button */}
-            <div className="h-20 px-6 border-b border-slate-100 flex items-center justify-between shrink-0">
+            <div className="h-20 px-6 border-b border-slate-300 bg-slate-200 flex items-center justify-between shrink-0">
               <Link
                 href="/"
                 onClick={() => setMobileMenuOpen(false)}
@@ -141,16 +141,16 @@ export default function Navbar() {
                 <Image
                   src="/logo.png"
                   alt="ELNIX POWERZONE"
-                  width={220}
-                  height={64}
-                  className="h-11 sm:h-12 w-auto object-contain"
+                  width={180}
+                  height={52}
+                  className="h-6.5 sm:h-7.5 w-auto object-contain"
                   priority
                 />
               </Link>
 
               <button
                 onClick={() => setMobileMenuOpen(false)}
-                className="p-2.5 text-slate-600 hover:text-slate-950 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+                className="p-2.5 text-slate-700 hover:text-slate-950 rounded-xl hover:bg-slate-300/80 transition-colors cursor-pointer"
                 aria-label="Close Menu"
               >
                 <X className="w-6 h-6" />
@@ -195,21 +195,21 @@ export default function Navbar() {
                 </div>
               </a>
 
-              {/* Action Buttons: Get a Quote & WhatsApp (Direct WhatsApp triggers) */}
+              {/* Action Buttons: Enquiry & WhatsApp (Direct WhatsApp triggers) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <a
-                  href={quoteWhatsappUrl}
+                  href={enquiryWhatsappUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setMobileMenuOpen(false)}
                   className="w-full flex items-center justify-center gap-2 py-3.5 px-5 rounded-2xl bg-[#0b1a30] hover:bg-[#162a4a] text-white font-bold text-sm shadow-md transition-all cursor-pointer"
                 >
-                  <span>Get a Quote</span>
+                  <span>Enquiry</span>
                   <ArrowRight className="w-4 h-4 text-sky-400" />
                 </a>
 
                 <a
-                  href={quoteWhatsappUrl}
+                  href={enquiryWhatsappUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setMobileMenuOpen(false)}

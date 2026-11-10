@@ -243,7 +243,7 @@ export default function ProductsClient({
                   </Link>
 
                   {/* Tagline / Subtitle */}
-                  <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+                  <p className="text-sm text-slate-600 mt-1.5 line-clamp-2 leading-relaxed">
                     {prod.tagline || prod.description}
                   </p>
                 </div>

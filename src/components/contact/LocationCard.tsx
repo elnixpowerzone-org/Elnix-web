@@ -62,25 +62,31 @@ export default function LocationCard({ location }: LocationCardProps) {
 
   return (
     <div 
-      className={`bg-white rounded-3xl border transition-all duration-200 overflow-hidden shadow-2xs hover:shadow-xl flex flex-col justify-between ${
+      className={`bg-white rounded-3xl border transition-all duration-200 overflow-hidden shadow-2xs hover:shadow-xl flex flex-col justify-between group ${
         location.is_primary ? 'border-sky-300 ring-2 ring-sky-500/10' : 'border-slate-200/90'
       }`}
     >
+      {/* Shop Image on TOP of Location Card */}
+      {location.image_url && (
+        <div className="relative h-64 sm:h-72 lg:h-80 w-full bg-slate-100 overflow-hidden shrink-0 border-b border-slate-100">
+          <img
+            src={location.image_url}
+            alt={`${location.name} Storefront`}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+        </div>
+      )}
+
       {/* Top Details Area */}
       <div className="p-6 sm:p-7 space-y-4">
-        {/* Header Badges: Primary / Branch Label */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-[11px] font-extrabold uppercase tracking-widest text-sky-600 bg-sky-50 px-3 py-1 rounded-full border border-sky-100">
-            {location.branch_label || 'Branch Store'}
-          </span>
-
-          {location.is_primary && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-black uppercase tracking-wider shadow-2xs">
-              <Star className="w-3 h-3 fill-amber-400 text-amber-500" />
-              <span>Headquarters</span>
+        {/* Header Badge (optional) */}
+        {location.branch_label ? (
+          <div>
+            <span className="text-[11px] font-extrabold uppercase tracking-widest text-sky-600 bg-sky-50 px-3 py-1 rounded-full border border-sky-100">
+              {location.branch_label}
             </span>
-          )}
-        </div>
+          </div>
+        ) : null}
 
         {/* Location Title & Description */}
         <div>

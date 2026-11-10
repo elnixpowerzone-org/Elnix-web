@@ -38,13 +38,13 @@ export default function Footer() {
           {/* Brand Column */}
           <div className="lg:col-span-2 space-y-4">
             <Link href="/" className="inline-block group">
-              <div className="bg-white px-4 py-2.5 rounded-2xl inline-flex items-center shadow-xs transition-transform duration-200 group-hover:scale-105">
+              <div className="bg-white px-3.5 py-2 rounded-xl inline-flex items-center shadow-xs transition-transform duration-200 group-hover:scale-105">
                 <Image
                   src="/logo.png"
                   alt="ELNIX POWERZONE"
-                  width={220}
-                  height={64}
-                  className="h-11 sm:h-12 w-auto object-contain"
+                  width={180}
+                  height={52}
+                  className="h-7 sm:h-8 w-auto object-contain"
                 />
               </div>
             </Link>
@@ -179,13 +179,13 @@ export default function Footer() {
           {/* Brand & Socials */}
           <div className="space-y-3 pb-2 text-center">
             <Link href="/" className="inline-block">
-              <div className="bg-white px-4 py-2.5 rounded-2xl inline-flex items-center shadow-xs">
+              <div className="bg-white px-3 py-1.5 rounded-xl inline-flex items-center shadow-xs">
                 <Image
                   src="/logo.png"
                   alt="ELNIX POWERZONE"
-                  width={200}
-                  height={58}
-                  className="h-10 sm:h-11 w-auto object-contain"
+                  width={160}
+                  height={46}
+                  className="h-6 sm:h-7 w-auto object-contain"
                 />
               </div>
             </Link>

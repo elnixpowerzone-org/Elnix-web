@@ -243,7 +243,7 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
                       <h4 className="text-sm font-bold text-slate-900 group-hover:text-sky-600 transition-colors line-clamp-1">
                         {rel.name}
                       </h4>
-                      <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
+                      <p className="text-xs sm:text-[13px] text-slate-600 line-clamp-1 mt-0.5">
                         {rel.tagline || rel.description}
                       </p>
                     </div>

@@ -6,17 +6,18 @@ import PopularProductsSection from '@/components/home/PopularProductsSection';
 import AboutSection from '@/components/home/AboutSection';
 import LocationSection from '@/components/home/LocationSection';
 import CtaBanner from '@/components/home/CtaBanner';
-import { getCategories, getProducts, getBrands, getHeroSettings } from '@/lib/store';
+import { getCategories, getProducts, getBrands, getHeroSettings, getStoreLocations } from '@/lib/store';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0; // Always fetch fresh settings on refresh
 
 export default async function HomePage() {
-  const [categories, products, brands, heroSettings] = await Promise.all([
+  const [categories, products, brands, heroSettings, storeLocations] = await Promise.all([
     getCategories(),
     getProducts({ featured: true }),
     getBrands(),
     getHeroSettings(),
+    getStoreLocations({ onlyVisible: true }),
   ]);
 
   return (
@@ -27,7 +28,7 @@ export default async function HomePage() {
         <CategoriesSection categories={categories} brands={brands} />
         <PopularProductsSection products={products} />
         <AboutSection />
-        <LocationSection />
+        <LocationSection locations={storeLocations} />
         <CtaBanner />
       </main>
       <Footer />
