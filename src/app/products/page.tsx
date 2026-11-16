@@ -15,9 +15,10 @@ export const revalidate = 30;
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string }>;
+  searchParams: Promise<{ category?: string; search?: string; q?: string }>;
 }) {
-  const { category } = await searchParams;
+  const { category, search, q } = await searchParams;
+  const initialSearch = search || q || '';
   const [categories, products, brands] = await Promise.all([
     getCategories(),
     getProducts(),
@@ -50,6 +51,7 @@ export default async function ProductsPage({
             categories={categories}
             brands={brands}
             initialCategory={category || 'all'}
+            initialSearch={initialSearch}
           />
         </div>
 
