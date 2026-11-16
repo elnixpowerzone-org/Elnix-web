@@ -1,14 +1,19 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
-import { Phone, ArrowRight, Menu, X, MessageCircle } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Phone, ArrowRight, Menu, X, MessageCircle, Search } from 'lucide-react';
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
   const enquiryWhatsappUrl = `https://wa.me/918848318521?text=${encodeURIComponent(
     'Hello Elnix Powerzone, I have an enquiry about your products. Could you please share the pricing, catalog, and availability details?'
@@ -24,6 +29,46 @@ export default function Navbar() {
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/';
     return pathname.startsWith(href);
+  };
+
+  // Focus input when search bar opens
+  useEffect(() => {
+    if (searchOpen) {
+      const timer = setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [searchOpen]);
+
+  // Handle ESC key to close search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && searchOpen) {
+        setSearchOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [searchOpen]);
+
+  // Close search on route change
+  useEffect(() => {
+    setSearchOpen(false);
+  }, [pathname]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = searchQuery.trim();
+    if (!trimmed) return;
+    setSearchOpen(false);
+    router.push(`/products?search=${encodeURIComponent(trimmed)}`);
+  };
+
+  const handleQuickTagClick = (tag: string) => {
+    setSearchQuery(tag);
+    setSearchOpen(false);
+    router.push(`/products?search=${encodeURIComponent(tag)}`);
   };
 
   // Prevent background scrolling when full-screen mobile menu is open
@@ -75,12 +120,27 @@ export default function Navbar() {
               })}
             </nav>
 
-            {/* Right CTAs (Desktop): Phone + Enquiry */}
-            <div className="hidden lg:flex items-center gap-6">
+            {/* Right CTAs (Desktop): Search Icon + Phone + Enquiry */}
+            <div className="hidden lg:flex items-center gap-4 xl:gap-5">
+              {/* Search Toggle Button */}
+              <button
+                type="button"
+                onClick={() => setSearchOpen((prev) => !prev)}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-xs cursor-pointer ${
+                  searchOpen
+                    ? 'bg-[#0b1a30] text-white ring-2 ring-[#0b1a30]/30'
+                    : 'bg-white text-slate-700 hover:text-sky-600 hover:bg-slate-50'
+                }`}
+                aria-label="Search products"
+                title="Search products"
+              >
+                {searchOpen ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
+              </button>
+
               {/* Phone CTA */}
               <a
                 href="tel:8848318521"
-                className="flex items-center gap-3 text-left group"
+                className="flex items-center gap-2.5 text-left group"
               >
                 <div className="w-10 h-10 rounded-full bg-white text-sky-600 flex items-center justify-center group-hover:bg-sky-600 group-hover:text-white transition-all shadow-xs">
                   <Phone className="w-4 h-4" />
@@ -108,18 +168,30 @@ export default function Navbar() {
             </div>
 
             {/* Mobile Header Buttons */}
-            <div className="flex md:hidden items-center gap-2.5">
+            <div className="flex md:hidden items-center gap-2">
+              {/* Mobile Search Toggle Button */}
+              <button
+                type="button"
+                onClick={() => setSearchOpen((prev) => !prev)}
+                className={`p-2 rounded-lg transition-colors cursor-pointer ${
+                  searchOpen ? 'bg-slate-300 text-slate-900' : 'text-slate-800 hover:text-slate-950'
+                }`}
+                aria-label="Search products"
+              >
+                {searchOpen ? <X className="w-5 h-5" /> : <Search className="w-5 h-5" />}
+              </button>
+
               <a
                 href={enquiryWhatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3.5 py-1.5 bg-[#0b1a30] text-white text-xs font-bold rounded-lg cursor-pointer"
+                className="px-3 py-1.5 bg-[#0b1a30] text-white text-xs font-bold rounded-lg cursor-pointer"
               >
                 Enquiry
               </a>
               <button
                 onClick={() => setMobileMenuOpen(true)}
-                className="p-2 text-slate-800 hover:text-slate-950 focus:outline-none cursor-pointer"
+                className="p-1.5 text-slate-800 hover:text-slate-950 focus:outline-none cursor-pointer"
                 aria-label="Open Navigation Menu"
               >
                 <Menu className="w-6 h-6" />
@@ -127,6 +199,78 @@ export default function Navbar() {
             </div>
           </div>
         </div>
+
+        {/* SLIDE-DOWN SEARCH BAR (Option A) */}
+        {searchOpen && (
+          <div
+            ref={searchContainerRef}
+            className="border-t border-slate-300 bg-white/95 backdrop-blur-md shadow-lg animate-in slide-in-from-top-2 duration-200"
+          >
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3.5">
+              <form onSubmit={handleSearchSubmit} className="relative flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search inverter batteries, solar, cables, pumps, sanitaryware..."
+                    className="w-full pl-11 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 placeholder:text-slate-400 transition-all"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                      title="Clear"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Submit Search Button */}
+                <button
+                  type="submit"
+                  disabled={!searchQuery.trim()}
+                  className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2.5 rounded-xl bg-[#0b1a30] hover:bg-[#162a4a] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0"
+                >
+                  <span>Search</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-sky-400" />
+                </button>
+
+                {/* Close Button */}
+                <button
+                  type="button"
+                  onClick={() => setSearchOpen(false)}
+                  className="p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+                  aria-label="Close search"
+                  title="Close (Esc)"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </form>
+
+              {/* Quick Suggestions / Popular Categories */}
+              <div className="flex items-center gap-2 pt-2.5 text-xs overflow-x-auto no-scrollbar">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0">
+                  Popular:
+                </span>
+                {['Batteries', 'Inverters', 'Solar', 'Pumps', 'Water Heaters', 'Electricals'].map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => handleQuickTagClick(tag)}
+                    className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-sky-50 hover:text-sky-700 text-slate-600 font-medium text-[11px] transition-colors whitespace-nowrap cursor-pointer"
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* FULL-HEIGHT MOBILE MENU MODAL */}
         {mobileMenuOpen && (
@@ -159,6 +303,26 @@ export default function Navbar() {
 
             {/* Nav Links starting right below the top header */}
             <div className="px-5 pt-3 pb-6 flex-1 flex flex-col justify-start space-y-1.5 overflow-y-auto">
+              {/* Mobile Drawer Search Input */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!searchQuery.trim()) return;
+                  setMobileMenuOpen(false);
+                  router.push(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
+                }}
+                className="relative mb-3 pt-1"
+              >
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search products & brands..."
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-100 rounded-xl text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all"
+                />
+              </form>
+
               {navLinks.map((link) => {
                 const active = isActive(link.href);
                 return (

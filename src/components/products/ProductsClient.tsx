@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { Search, Eye, CheckCircle2, SlidersHorizontal, X, MessageCircle } from 'lucide-react';
 import { Product, Category, Brand } from '@/types';
@@ -10,6 +10,7 @@ interface ProductsClientProps {
   categories: Category[];
   brands: Brand[];
   initialCategory?: string;
+  initialSearch?: string;
 }
 
 export default function ProductsClient({
@@ -17,11 +18,19 @@ export default function ProductsClient({
   categories,
   brands,
   initialCategory = 'all',
+  initialSearch = '',
 }: ProductsClientProps) {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
   const [onlyInStock, setOnlyInStock] = useState(false);
+
+  // Sync when initialSearch changes (e.g. user searches from header while on products page)
+  useEffect(() => {
+    if (initialSearch !== undefined) {
+      setSearchQuery(initialSearch);
+    }
+  }, [initialSearch]);
 
   // Filter products
   const filteredProducts = useMemo(() => {
