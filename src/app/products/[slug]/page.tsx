@@ -9,7 +9,6 @@ import {
   ArrowLeft, 
   CheckCircle2, 
   Phone, 
-  MessageCircle, 
   ShieldCheck, 
   Truck, 
   Clock, 
@@ -149,30 +148,6 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
                       {product.tagline}
                     </p>
                   )}
-                </div>
-
-                {/* Price Display */}
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-baseline justify-between">
-                  <div>
-                    <span className="text-xs text-slate-500 uppercase tracking-wider block font-bold">
-                      Pricing Mode
-                    </span>
-                    {product.price ? (
-                      <div className="text-2xl sm:text-3xl font-black text-slate-900 mt-0.5">
-                        ₹{product.price.toLocaleString('en-IN')}{' '}
-                        {product.unit && (
-                          <span className="text-xs font-normal text-slate-500">/{product.unit}</span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-lg font-bold text-slate-800">
-                        Wholesale & Retail Quotation
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-xs font-medium text-slate-500">
-                    *Special volume discounts for contractors
-                  </span>
                 </div>
 
                 {/* Description */}

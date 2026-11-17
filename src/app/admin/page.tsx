@@ -16,6 +16,7 @@ import {
   Film,
   MapPin
 } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import { getProducts, getCategories, getBrands, getEnquiries, getStoreLocations } from '@/lib/store';
 
 export const revalidate = 0; // Dynamic admin dashboard
@@ -190,9 +191,10 @@ export default async function AdminDashboardPage() {
                       href={`https://wa.me/91${enq.phone.replace(/[^0-9]/g, '')}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-bold transition-colors"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-bold transition-colors"
                     >
-                      WhatsApp
+                      <WhatsAppIcon className="w-3.5 h-3.5" />
+                      <span>WhatsApp</span>
                     </a>
                   </div>
                 </div>

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { X, Send, CheckCircle2, Phone, Sparkles } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import { toast } from 'sonner';
 
 interface QuoteModalProps {
@@ -128,7 +129,8 @@ export default function QuoteModal({
                 rel="noreferrer"
                 className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
               >
-                Chat on WhatsApp Now
+                <WhatsAppIcon className="w-4 h-4" />
+                <span>Chat on WhatsApp Now</span>
               </a>
               <button
                 onClick={handleReset}

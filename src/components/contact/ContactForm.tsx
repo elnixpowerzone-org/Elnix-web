@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Send, CheckCircle2, Sparkles, MessageCircle, MapPin, Building, ShieldCheck } from 'lucide-react';
+import { Send, CheckCircle2, Sparkles, MapPin, Building, ShieldCheck } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import { StoreLocation } from '@/types';
 import { toast } from 'sonner';
 
@@ -165,7 +166,7 @@ export default function ContactForm({ locations = [], defaultLocationId }: Conta
             rel="noreferrer"
             className="px-6 py-3 bg-emerald-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 shadow-md cursor-pointer"
           >
-            <MessageCircle className="w-4 h-4" />
+            <WhatsAppIcon className="w-4.5 h-4.5" />
             <span>Chat on WhatsApp</span>
           </a>
           <button

@@ -2,7 +2,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Eye, CheckCircle2, SlidersHorizontal, X, MessageCircle } from 'lucide-react';
+import { Search, Eye, CheckCircle2, SlidersHorizontal, X } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import { Product, Category, Brand } from '@/types';
 
 interface ProductsClientProps {
@@ -257,24 +258,8 @@ export default function ProductsClient({
                   </p>
                 </div>
 
-                {/* Price & Full-Width Enquiry Action */}
+                {/* Full-Width Enquiry Action */}
                 <div className="pt-4 mt-auto border-t border-slate-100">
-                  <div className="flex items-baseline justify-between mb-3">
-                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">
-                      Wholesale / Retail
-                    </span>
-                    {prod.price ? (
-                      <div className="text-base font-black text-slate-900">
-                        ₹{prod.price.toLocaleString('en-IN')}
-                        {prod.unit && <span className="text-xs font-normal text-slate-500"> /{prod.unit}</span>}
-                      </div>
-                    ) : (
-                      <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-md">
-                        Wholesale Rate
-                      </span>
-                    )}
-                  </div>
-
                   {/* Full-Width Enquiry button at bottom */}
                   <a
                     href={`https://wa.me/918848318521?text=${encodeURIComponent(
@@ -285,7 +270,7 @@ export default function ProductsClient({
                     className="w-full py-2.5 px-4 rounded-xl bg-[#0b1a30] hover:bg-emerald-600 text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-xs"
                     title="Enquire on WhatsApp"
                   >
-                    <MessageCircle className="w-4 h-4 text-emerald-400" />
+                    <WhatsAppIcon className="w-4 h-4 text-emerald-400" />
                     <span>Enquire on WhatsApp</span>
                   </a>
                 </div>

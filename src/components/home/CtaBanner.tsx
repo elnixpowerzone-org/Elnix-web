@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Phone, MessageCircle } from 'lucide-react';
+import { Phone } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 
 export default function CtaBanner() {
   return (
@@ -41,7 +42,7 @@ export default function CtaBanner() {
             rel="noreferrer"
             className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-xl shadow-emerald-600/20 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
           >
-            <MessageCircle className="w-4 h-4" />
+            <WhatsAppIcon className="w-4.5 h-4.5" />
             <span>WhatsApp Us</span>
           </a>
         </div>

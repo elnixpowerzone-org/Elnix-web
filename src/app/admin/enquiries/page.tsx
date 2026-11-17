@@ -5,7 +5,6 @@ import {
   Inbox, 
   Search, 
   Phone, 
-  MessageCircle, 
   Mail, 
   Clock, 
   CheckCircle2, 
@@ -13,6 +12,7 @@ import {
   FileText,
   User
 } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import { Enquiry } from '@/types';
 import { toast } from 'sonner';
 
@@ -235,7 +235,7 @@ export default function AdminEnquiriesPage() {
                         rel="noreferrer"
                         className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-xs"
                       >
-                        <MessageCircle className="w-3.5 h-3.5" />
+                        <WhatsAppIcon className="w-3.5 h-3.5" />
                         <span>WhatsApp</span>
                       </a>
                       <a
