@@ -71,8 +71,6 @@ export default function AdminProductsPage() {
       brand_id: brands[0]?.id || '',
       tagline: '',
       description: '',
-      price: undefined,
-      unit: 'Piece',
       image_url: '',
       public_id: '',
       in_stock: true,
@@ -278,7 +276,6 @@ export default function AdminProductsPage() {
                 <tr>
                   <th className="py-4 px-6">Product</th>
                   <th className="py-4 px-6">Category</th>
-                  <th className="py-4 px-6">Price</th>
                   <th className="py-4 px-6">Badges</th>
                   <th className="py-4 px-6">Stock</th>
                   <th className="py-4 px-6 text-right">Actions</th>
@@ -305,14 +302,6 @@ export default function AdminProductsPage() {
                       <span className="px-2.5 py-1 rounded-md bg-sky-50 text-sky-700 font-bold text-[11px] border border-sky-100">
                         {p.category?.name || 'General'}
                       </span>
-                    </td>
-
-                    <td className="py-4 px-6 font-bold text-slate-900">
-                      {p.price ? (
-                        <span>₹{p.price.toLocaleString('en-IN')} <span className="text-[10px] text-slate-400 font-normal">/{p.unit || 'pc'}</span></span>
-                      ) : (
-                        <span className="text-slate-400 font-normal italic">Quote basis</span>
-                      )}
                     </td>
 
                     <td className="py-4 px-6">
@@ -474,41 +463,6 @@ export default function AdminProductsPage() {
                       </option>
                     ))}
                   </select>
-                </div>
-              </div>
-
-              {/* Price & Unit */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Price (₹ INR - Optional)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="Leave empty for quote basis"
-                    value={editingProduct.price || ''}
-                    onChange={(e) =>
-                      setEditingProduct({
-                        ...editingProduct,
-                        price: e.target.value ? parseFloat(e.target.value) : undefined,
-                      })
-                    }
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Unit
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Piece / Coil / Meter / Set"
-                    value={editingProduct.unit || 'Piece'}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, unit: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                  />
                 </div>
               </div>
 

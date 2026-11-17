@@ -14,7 +14,6 @@ import {
   Phone, 
   Mail, 
   Clock, 
-  MessageCircle, 
   Navigation, 
   X, 
   Save, 
@@ -26,6 +25,7 @@ import {
   AlertCircle,
   Image as ImageIcon
 } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import { StoreLocation } from '@/types';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import ImageUploader from '@/components/ImageUploader';
@@ -531,7 +531,7 @@ export default function AdminLocationsPage() {
 
                       {/* WhatsApp */}
                       <div className="flex items-start gap-2.5 p-3 rounded-xl bg-emerald-50/60 border border-emerald-100">
-                        <MessageCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        <WhatsAppIcon className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                         <div>
                           <span className="font-bold text-emerald-800 uppercase tracking-wider block text-[10px]">
                             WhatsApp

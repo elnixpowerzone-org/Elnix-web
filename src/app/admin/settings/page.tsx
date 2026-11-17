@@ -9,11 +9,11 @@ import {
   Mail, 
   MapPin, 
   Clock, 
-  MessageCircle, 
   ArrowRight, 
   FileText,
   Sparkles
 } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import { SiteSettings } from '@/types';
 import { toast } from 'sonner';
 
@@ -158,7 +158,7 @@ export default function AdminSettingsPage() {
                 WhatsApp Number (e.g. 918848318521)
               </label>
               <div className="relative">
-                <MessageCircle className="w-4 h-4 text-emerald-600 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <WhatsAppIcon className="w-4 h-4 text-emerald-600 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   required

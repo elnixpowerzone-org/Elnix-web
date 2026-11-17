@@ -2,7 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowRight, Eye, MessageCircle } from 'lucide-react';
+import { ArrowRight, Eye } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import { Product } from '@/types';
 
 interface PopularProductsSectionProps {
@@ -66,7 +67,7 @@ export default function PopularProductsSection({ products }: PopularProductsSect
                                 title="Enquire on WhatsApp"
                                 className="p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-transform active:scale-90"
                               >
-                              <MessageCircle className="w-4 h-4" />
+                              <WhatsAppIcon className="w-4 h-4" />
                             </a>
                             <Link
                               href={`/products/${product.slug}`}
@@ -99,7 +100,7 @@ export default function PopularProductsSection({ products }: PopularProductsSect
                           rel="noopener noreferrer"
                           className="mt-3 w-full py-1.5 px-2 bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 hover:border-emerald-200 text-[11px] font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                         >
-                        <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                        <WhatsAppIcon className="w-3.5 h-3.5 text-emerald-600" />
                         <span>Enquire Now</span>
                       </a>
                 </div>

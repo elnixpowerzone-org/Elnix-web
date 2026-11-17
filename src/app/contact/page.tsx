@@ -9,7 +9,6 @@ import {
   Mail, 
   MapPin, 
   Clock, 
-  MessageCircle, 
   HelpCircle, 
   ShieldCheck, 
   Truck, 
@@ -18,6 +17,7 @@ import {
   CheckCircle2,
   Sparkles
 } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -126,7 +126,7 @@ export default async function ContactPage() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm tracking-wide shadow-lg shadow-emerald-600/25 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
               >
-                <MessageCircle className="w-4 h-4" />
+                <WhatsAppIcon className="w-4.5 h-4.5" />
                 <span>WhatsApp Us</span>
               </a>
 
@@ -173,7 +173,7 @@ export default async function ContactPage() {
               <div className="p-6 bg-white rounded-3xl border border-slate-200/90 shadow-md hover:shadow-xl transition-all flex flex-col justify-between group">
                 <div className="space-y-3">
                   <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                    <MessageCircle className="w-6 h-6" />
+                    <WhatsAppIcon className="w-6 h-6" />
                   </div>
                   <div>
                     <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 block">

@@ -7,11 +7,11 @@ import {
   Mail, 
   Clock, 
   Navigation, 
-  MessageCircle, 
   Star, 
   ExternalLink,
   Compass
 } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import { StoreLocation } from '@/types';
 
 interface LocationCardProps {
@@ -222,7 +222,7 @@ export default function LocationCard({ location }: LocationCardProps) {
             className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs text-center cursor-pointer"
             title="Chat directly on WhatsApp"
           >
-            <MessageCircle className="w-3.5 h-3.5" />
+            <WhatsAppIcon className="w-3.5 h-3.5" />
             <span className="truncate">WhatsApp</span>
           </a>
         </div>

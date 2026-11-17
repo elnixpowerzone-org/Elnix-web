@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Send, Phone, MessageCircle } from 'lucide-react';
+import { Send, Phone } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import { Product } from '@/types';
 import QuoteModal from '../QuoteModal';
 
@@ -30,7 +31,7 @@ export default function ProductDetailActions({ product }: { product: Product }) 
           rel="noreferrer"
           className="py-3.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold uppercase tracking-wider shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
         >
-          <MessageCircle className="w-4 h-4" />
+          <WhatsAppIcon className="w-4.5 h-4.5" />
           <span>WhatsApp Enquiry</span>
         </a>
 

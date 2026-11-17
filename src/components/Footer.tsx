@@ -10,9 +10,9 @@ import {
   Clock, 
   Facebook, 
   Instagram, 
-  MessageCircle, 
   ChevronDown
 } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 
 export default function Footer() {
   // Mobile accordion state (all collapsed initially)
@@ -80,7 +80,7 @@ export default function Footer() {
                 className="w-9 h-9 rounded-full bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white flex items-center justify-center transition-all duration-200"
                 aria-label="WhatsApp"
               >
-                <MessageCircle className="w-4 h-4" />
+                <WhatsAppIcon className="w-4 h-4" />
               </a>
               <a
                 href="https://maps.google.com/?q=Chottanikkara+Ernakulam+Kerala"
@@ -220,7 +220,7 @@ export default function Footer() {
                 className="w-9 h-9 rounded-full bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white flex items-center justify-center transition-colors"
                 aria-label="WhatsApp"
               >
-                <MessageCircle className="w-4 h-4" />
+                <WhatsAppIcon className="w-4 h-4" />
               </a>
               <a
                 href="https://maps.google.com/?q=Chottanikkara+Ernakulam+Kerala"
